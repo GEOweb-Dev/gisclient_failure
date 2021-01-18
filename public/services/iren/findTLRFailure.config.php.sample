@@ -1,0 +1,437 @@
+<?php
+/***** CONFIGURAZIONE ELEMENTI DA INTERCETTARE : condotta, valvola zona, valvola magliatura, camera valvola, camera polivalente, camera baricentro, 
+ * pozzetto valvola, pozzetto baricentro, sottostazione utenza, stazione di pompaggio, centale IREN ****/
+define('POSTGIS_TRANSFORM_GEOMETRY','postgis_transform_geometry');
+$DB_PLUGIN = "";//COMPLETARE
+$SCHEMA = "teleriscaldamento";
+$FID_FIELD = "fid";
+$GEOM_FIELD = "geom";
+$GEOM_SRID = "25832";
+$TIME_OUT = "50000";
+$ELEMENTS = array(
+  "condotta" => array("featureType"=>array(
+    "table" => "fcl_h_ww_section",
+    "condition" => "id_tipo_verso in (1,3)",
+    "title" => "Condotta",
+    "properties" => array(
+      array(
+        "name"=>"street_name",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"codice_sap",
+	"fieldHeader"=>"Codice SAP",
+        "type"=>"string"
+      ),
+      array(
+        "name"=>"id_diametro_value",
+	"fieldHeader"=>"Diametro",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"id_materiale_value",
+	"fieldHeader"=>"Materiale",
+	"type"=>"string"
+      ),		
+      array(
+        "name"=>"profondita",
+	"fieldHeader"=>"Profondità",
+	"type"=>"string"
+      )
+    )
+  )),
+  "valvola zona" => array("featureType"=>array(
+    "table" => "fcl_h_isolation_device as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",
+    "condition" => "a.id_tipologia=1",// and id_stato_valvola not in (4,5)",
+    "title" => "Valvola Zona",
+    "simbolo" => "vz",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_id_valvola",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+        "type"=>"string"
+      )/*,
+      array(
+        "name"=>"id_stato_valvola_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  //provo ad inserire le valvole sempre chiuse.. che funzionano come gli elementi di interruzione
+  //fine
+  "valvola magliatura" => array("featureType"=>array(
+    "table" => "fcl_h_isolation_device as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",
+    "condition" => "a.id_tipologia=2",// and id_stato_valvola not in (4,5)",
+    "title" => "Valvola Magliatura",
+    "simbolo" => "vm",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+        "fieldHeader"=>"Indirizzo",
+        "type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_id_valvola",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      )/*,
+      array(
+        "name"=>"id_stato_valvola_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  //provo ad inserire le valvole sempre chiuse.. che funzionano come gli elementi di interruzione
+  //fine
+  "camera valvola" => array("featureType"=>array(
+    "table" => "fcl_h_component as a", 
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",//"1 as escluso",
+    "condition" => "id_tipologia=4 and gtype_id=10",
+    "title" => "Camera Valvola",
+    "simbolo" => "cv", 
+    "groupby"=> "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      /*array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),*/
+      array(
+        "name"=>"codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  "camera polivalente" => array("featureType"=>array(
+    "table" => "fcl_h_component as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",//"1 as escluso",
+    "condition" => "id_tipologia=3 and gtype_id=10",
+    "title" => "Camera Polivalente",
+    "simbolo" => "cp",
+    "groupby" => "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      /*array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),*/
+      array(
+        "name"=>"codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  "camera baricentro" => array("featureType"=>array(
+    "table" => "fcl_h_component as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",//"1 as escluso",
+    "condition" => "id_tipologia=1 and gtype_id=10",
+    "title" => "Camera Baricentro",
+    "simbolo"=> "cb",
+    "groupby"=> "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      /*array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),*/
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/		
+    )
+  )),	
+  "pozzetto valvola" => array("featureType"=>array(
+    "table" => "fcl_h_component as a", 
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "", //"1 as escluso",	
+    "condition" => "id_tipologia=4 and gtype_id=20",
+    "title" => "Pozzetto Valvola",
+    "simbolo"=> "pv", 
+    "groupby"=> "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+     /* array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),	*/
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+	"name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  "pozzetto baricentro" => array("featureType"=>array(
+    "table" => "fcl_h_component as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",//"1 as escluso",
+    "condition" => "id_tipologia=3 and gtype_id=20",
+    "title" => "Pozzetto Baricentro",
+    "simbolo" => "pb",  
+    "groupby"=> "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      /*array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),*/
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/		
+    )
+  )),
+  "pozzetto polivalente" => array("featureType"=>array(
+    "table" => "fcl_h_component as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "",//"1 as escluso",
+    "condition" => "id_tipologia=5 and gtype_id=20",
+    "title" => "Pozzetto Polivalente",
+    "simbolo" => "pp",
+    "groupby" => "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      /*array(
+        "name"=>"codice_impianto",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),*/
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"count(*) as cont",
+        "fieldHeader"=>"Numero valvole",
+        "type"=>"string"
+      )
+      /*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  //fine elementi manovrabili
+  "sottostazione utenza" => array("featureType"=>array(
+    "table" => "fcl_h_service as a",
+    "join" => "left join $SCHEMA.sap_h_service as b on a.codice_sap = b.sap_id left join (select a.codice_sap, count(*) as somma from $SCHEMA.fcl_h_service as a left join $SCHEMA.sap_h_service as b on a.codice_sap=b.sap_id where id_tipologia=4 group by a.codice_sap) c on a.codice_sap=c.codice_sap",
+    "exclusion" => "",
+    "condition" => "id_tipologia=4 and (b.sap_id is null or b.sap_num_sst is not null)",
+    "title" => "Sottostazione Utenza",
+    "simbolo" => "su",
+    //"groupby" => "1",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_num_sst",
+	"fieldHeader"=>"Numero Sottostaz",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_vol",
+	"fieldHeader"=>"Volumetria",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"c.somma",
+        "fieldHeader"=>"Numero utenze",
+        "type"=>"string"
+      )/*
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  "stazione di pompaggio" => array("featureType"=>array(
+    "table" => "fcl_h_installation",
+    "exclusion" => "",
+    "condition" => "gtype_id=20",
+    "title" => "Stazione di Pompaggio",
+    "simbolo" => "sp",
+    "properties" => array(
+      array(
+        "name"=>"street_name",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"nomeasset",
+	"fieldHeader"=>"Nome",
+	"type"=>"string"
+      )/*,
+      array(
+        "name"=>"codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      )*//*,
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/		
+    )
+  )),
+  "centrale IREN" => array("featureType"=>array(
+    "table" => "fcl_h_installation",
+    "exclusion" => "",
+    "condition" => "gtype_id=10",
+    "title" => "Centrale IREN",
+    "simbolo" => "iren",
+    "properties" => array(
+      array(
+        "name"=>"street_name",
+	"fieldHeader"=>"Indirizzo",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"nomeasset",
+	"fieldHeader"=>"Nome",
+	"type"=>"string"
+      )/*,
+      array(
+        "name"=>"codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"id_stato_value",
+	"fieldHeader"=>"Stato",
+	"type"=>"string"
+      )*/	
+    )
+  )),
+  "altro" => array("featureType"=>array(
+    "title" => "Barriera",
+    "simbolo" => "barr"
+  ))
+);
+
+
+?>
