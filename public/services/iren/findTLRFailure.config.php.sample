@@ -45,7 +45,7 @@ $ELEMENTS = array(
     "table" => "fcl_h_isolation_device as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",
-    "condition" => "a.id_tipologia=1",// and id_stato_valvola not in (4,5)",
+    "condition" => "a.id_tipologia=1 and id_stato=3",
     "title" => "Valvola Zona",
     "simbolo" => "vz",
     "properties" => array(
@@ -63,12 +63,7 @@ $ELEMENTS = array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
         "type"=>"string"
-      )/*,
-      array(
-        "name"=>"id_stato_valvola_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
+      )
     )
   )),
   //provo ad inserire le valvole sempre chiuse.. che funzionano come gli elementi di interruzione
@@ -77,7 +72,7 @@ $ELEMENTS = array(
     "table" => "fcl_h_isolation_device as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",
-    "condition" => "a.id_tipologia=2",// and id_stato_valvola not in (4,5)",
+    "condition" => "a.id_tipologia=2 and id_stato=3",
     "title" => "Valvola Magliatura",
     "simbolo" => "vm",
     "properties" => array(
@@ -95,12 +90,58 @@ $ELEMENTS = array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
 	"type"=>"string"
-      )/*,
+      )
+    )
+  )),
+  "valvola sfiato" => array("featureType"=>array(
+    "table" => "fcl_h_isolation_device as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "1 as escluso",
+    "condition" => "a.id_tipologia=4 and id_stato=3",
+    "title" => "Valvola Sfiato",
+    "simbolo" => "vs",
+    "properties" => array(
       array(
-        "name"=>"id_stato_valvola_value",
-	"fieldHeader"=>"Stato",
+        "name"=>"b.sap_indirizzo",
+        "fieldHeader"=>"Indirizzo",
+        "type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_id_valvola",
+	"fieldHeader"=>"Codice",
 	"type"=>"string"
-      )*/	
+      ),
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      )
+    )
+  )),
+
+  "valvola drenaggio" => array("featureType"=>array(
+    "table" => "fcl_h_isolation_device as a",
+    "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
+    "exclusion" => "1 as escluso",
+    "condition" => "a.id_tipologia=5 and id_stato=3",
+    "title" => "Valvola Drenaggio",
+    "simbolo" => "vd",
+    "properties" => array(
+      array(
+        "name"=>"b.sap_indirizzo",
+        "fieldHeader"=>"Indirizzo",
+        "type"=>"string"
+      ),
+      array(
+        "name"=>"b.sap_id_valvola",
+	"fieldHeader"=>"Codice",
+	"type"=>"string"
+      ),
+      array(
+        "name"=>"a.codice_sap",
+	"fieldHeader"=>"Codice SAP",
+	"type"=>"string"
+      )
     )
   )),
   //provo ad inserire le valvole sempre chiuse.. che funzionano come gli elementi di interruzione
@@ -109,7 +150,7 @@ $ELEMENTS = array(
     "table" => "fcl_h_component as a", 
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",//"1 as escluso",
-    "condition" => "id_tipologia=4 and gtype_id=10",
+    "condition" => "id_tipologia=4 and gtype_id=10 and id_stato=3",
     "title" => "Camera Valvola",
     "simbolo" => "cv", 
     "groupby"=> "1",
@@ -119,11 +160,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-      /*array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),*/
       array(
         "name"=>"codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -134,19 +170,13 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
     )
   )),
   "camera polivalente" => array("featureType"=>array(
     "table" => "fcl_h_component as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",//"1 as escluso",
-    "condition" => "id_tipologia=3 and gtype_id=10",
+    "condition" => "id_tipologia=3 and gtype_id=10 and id_stato=3",
     "title" => "Camera Polivalente",
     "simbolo" => "cp",
     "groupby" => "1",
@@ -156,11 +186,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-      /*array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),*/
       array(
         "name"=>"codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -171,19 +196,13 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
     )
   )),
   "camera baricentro" => array("featureType"=>array(
     "table" => "fcl_h_component as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",//"1 as escluso",
-    "condition" => "id_tipologia=1 and gtype_id=10",
+    "condition" => "id_tipologia=1 and gtype_id=10 and id_stato=3",
     "title" => "Camera Baricentro",
     "simbolo"=> "cb",
     "groupby"=> "1",
@@ -193,11 +212,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-      /*array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),*/
       array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -208,19 +222,13 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/		
     )
   )),	
   "pozzetto valvola" => array("featureType"=>array(
     "table" => "fcl_h_component as a", 
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "", //"1 as escluso",	
-    "condition" => "id_tipologia=4 and gtype_id=20",
+    "condition" => "id_tipologia=4 and gtype_id=20 and id_stato=3",
     "title" => "Pozzetto Valvola",
     "simbolo"=> "pv", 
     "groupby"=> "1",
@@ -230,11 +238,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-     /* array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),	*/
       array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -245,19 +248,13 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-	"name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
     )
   )),
   "pozzetto baricentro" => array("featureType"=>array(
     "table" => "fcl_h_component as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",//"1 as escluso",
-    "condition" => "id_tipologia=3 and gtype_id=20",
+    "condition" => "id_tipologia=3 and gtype_id=20 and id_stato=3",
     "title" => "Pozzetto Baricentro",
     "simbolo" => "pb",  
     "groupby"=> "1",
@@ -267,11 +264,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-      /*array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),*/
       array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -282,19 +274,13 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/		
     )
   )),
   "pozzetto polivalente" => array("featureType"=>array(
     "table" => "fcl_h_component as a",
     "join" => "left join $SCHEMA.sap_h_isolation_device as b on a.codice_sap = b.sap_id",
     "exclusion" => "",//"1 as escluso",
-    "condition" => "id_tipologia=5 and gtype_id=20",
+    "condition" => "id_tipologia=5 and gtype_id=20 and id_stato=3",
     "title" => "Pozzetto Polivalente",
     "simbolo" => "pp",
     "groupby" => "1",
@@ -304,11 +290,6 @@ $ELEMENTS = array(
 	"fieldHeader"=>"Indirizzo",
 	"type"=>"string"
       ),
-      /*array(
-        "name"=>"codice_impianto",
-	"fieldHeader"=>"Codice",
-	"type"=>"string"
-      ),*/
       array(
         "name"=>"a.codice_sap",
 	"fieldHeader"=>"Codice SAP",
@@ -319,12 +300,6 @@ $ELEMENTS = array(
         "fieldHeader"=>"Numero valvole",
         "type"=>"string"
       )
-      /*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
     )
   )),
   //fine elementi manovrabili
@@ -332,7 +307,7 @@ $ELEMENTS = array(
     "table" => "fcl_h_service as a",
     "join" => "left join $SCHEMA.sap_h_service as b on a.codice_sap = b.sap_id left join (select a.codice_sap, count(*) as somma from $SCHEMA.fcl_h_service as a left join $SCHEMA.sap_h_service as b on a.codice_sap=b.sap_id where id_tipologia=4 group by a.codice_sap) c on a.codice_sap=c.codice_sap",
     "exclusion" => "",
-    "condition" => "id_tipologia=4 and (b.sap_id is null or b.sap_num_sst is not null)",
+    "condition" => "id_tipologia=4 and (b.sap_id is null or b.sap_num_sst is not null) and id_stato=3",
     "title" => "Sottostazione Utenza",
     "simbolo" => "su",
     //"groupby" => "1",
@@ -361,18 +336,13 @@ $ELEMENTS = array(
         "name"=>"c.somma",
         "fieldHeader"=>"Numero utenze",
         "type"=>"string"
-      )/*
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/	
+      )
     )
   )),
   "stazione di pompaggio" => array("featureType"=>array(
     "table" => "fcl_h_installation",
     "exclusion" => "",
-    "condition" => "gtype_id=20",
+    "condition" => "gtype_id=20 and id_Stato=3",
     "title" => "Stazione di Pompaggio",
     "simbolo" => "sp",
     "properties" => array(
@@ -385,23 +355,18 @@ $ELEMENTS = array(
         "name"=>"nomeasset",
 	"fieldHeader"=>"Nome",
 	"type"=>"string"
-      )/*,
+      ),
       array(
-        "name"=>"codice_sap",
-	"fieldHeader"=>"Codice SAP",
+        "name"=>"descrizione",
+	"fieldHeader"=>"descrizione",
 	"type"=>"string"
-      )*//*,
-      array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
-	"type"=>"string"
-      )*/		
+      )
     )
   )),
   "centrale IREN" => array("featureType"=>array(
     "table" => "fcl_h_installation",
     "exclusion" => "",
-    "condition" => "gtype_id=10",
+    "condition" => "gtype_id=10 and id_stato=3",
     "title" => "Centrale IREN",
     "simbolo" => "iren",
     "properties" => array(
@@ -414,17 +379,12 @@ $ELEMENTS = array(
         "name"=>"nomeasset",
 	"fieldHeader"=>"Nome",
 	"type"=>"string"
-      )/*,
-      array(
-        "name"=>"codice_sap",
-	"fieldHeader"=>"Codice SAP",
-	"type"=>"string"
       ),
       array(
-        "name"=>"id_stato_value",
-	"fieldHeader"=>"Stato",
+        "name"=>"descrizione",
+	"fieldHeader"=>"descrizione",
 	"type"=>"string"
-      )*/	
+      )
     )
   )),
   "altro" => array("featureType"=>array(

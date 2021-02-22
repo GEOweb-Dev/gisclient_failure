@@ -2,6 +2,10 @@
 require_once "findTLRFailure.config.php";
 require_once "../../../config/config.php";
 
+//20210218 MZ -> si passa da 'altro' a 'altro','valvola sfiato', 'valvola drenaggio'
+$otherListStr = "('altro', 'valvola sfiato', 'valvola drenaggio')";
+//fine MZ
+
 $dbSchema=DB_SCHEMA;
 $transform = defined('POSTGIS_TRANSFORM_GEOMETRY')?POSTGIS_TRANSFORM_GEOMETRY:'Transform_Geometry';
 // Setto qui i parametri di trasformazione... troppo casino ricavarli dal progetto corrente
@@ -57,12 +61,12 @@ $bVertex = $includeVertex ? explode(",",$includeVertex) : array();
 $excludeVertex = false;
 $aVertex=array();
 //Elementi da escludere:
-if(!empty($_REQUEST["exclude"])){
-  $stmt = $db->prepare("SELECT id_nodo from grafo.nodi where id_elemento in (".$_REQUEST["exclude"].");");
+//if(!empty($_REQUEST["exclude"])){
+  $stmt = $db->prepare("SELECT id_nodo from grafo.nodi where ".(!empty($_REQUEST["exclude"]) ? "id_elemento in (".$_REQUEST["exclude"].") or " : "")." tipo_nodo in ('valvola sfiato', 'valvola drenaggio')");
   $stmt->execute();
   while($row = $stmt->fetch(PDO::FETCH_ASSOC))
     $aVertex[]=$row["id_nodo"];
-}
+//}
 $excludeVertex = !empty($aVertex) ? implode(',',$aVertex) : false;
 
 /*
@@ -71,7 +75,7 @@ $joinFilter =  ($excludeVertex) ? "(sg.da_tipo<>'altro' AND sg.da_nodo NOT IN ($
   : "(sg.da_tipo<>'altro' OR sg.a_tipo<>'altro')";
 */
 //CON INCLUDI I NODI INVECE...
-$joinFilter = "((sg.da_tipo<>'altro'".($excludeVertex ? " AND sg.da_nodo not in ($excludeVertex)" : "").") OR (sg.a_tipo<>'altro'".($excludeVertex ? " AND sg.a_nodo not in ($excludeVertex)" : "")."))".($includeVertex ? " OR (sg.da_tipo='altro' and sg.da_nodo in ($includeVertex)) OR (sg.a_tipo='altro' and sg.a_nodo in ($includeVertex))" : "");
+$joinFilter = "((sg.da_tipo not in $otherListStr ".($excludeVertex ? " AND sg.da_nodo not in ($excludeVertex)" : "").") OR (sg.a_tipo not in $otherListStr ".($excludeVertex ? " AND sg.a_nodo not in ($excludeVertex)" : "")."))".($includeVertex ? " OR (sg.da_tipo in $otherListStr and sg.da_nodo in ($includeVertex)) OR (sg.a_tipo in $otherListStr and sg.a_nodo in ($includeVertex))" : "");
 
 
 //TROVO LA CONDOTTA SELEZIONATA COME ARCO DEL GRAFO - QUI!!
@@ -80,7 +84,7 @@ $joinFilter = "((sg.da_tipo<>'altro'".($excludeVertex ? " AND sg.da_nodo not in 
 $ff = (($excludeVertex) ? "(da_tipo<>'altro' AND da_nodo NOT IN ($excludeVertex)) OR (a_tipo<>'altro' AND a_nodo NOT IN ($excludeVertex))" : "da_tipo<>'altro' OR a_tipo<>'altro'");
 */
 //CON INCLUDI I NODI INVECE...
-$ff = "((da_tipo<>'altro'".($excludeVertex ? " AND da_nodo NOT IN ($excludeVertex)" : "").") OR (a_tipo<>'altro'".($excludeVertex ? " AND a_nodo NOT IN ($excludeVertex)" : "")."))".($includeVertex ? " OR (da_tipo='altro' and da_nodo in ($includeVertex)) OR (a_tipo='altro' and a_nodo in ($includeVertex))" : "");
+$ff = "((da_tipo not in $otherListStr ".($excludeVertex ? " AND da_nodo NOT IN ($excludeVertex)" : "").") OR (a_tipo not in $otherListStr ".($excludeVertex ? " AND a_nodo NOT IN ($excludeVertex)" : "")."))".($includeVertex ? " OR (da_tipo in $otherListStr and da_nodo in ($includeVertex)) OR (a_tipo in $otherListStr and a_nodo in ($includeVertex))" : "");
 //error_log("FF:".$ff);
 $stmt = $db->prepare("SELECT id_arco, case when ($ff) then 1 else 0 end as flag FROM grafo.archi as sg WHERE ST_DISTANCE('$point',$geom) < ".floatval($_REQUEST["distance"])
   ." ORDER BY ST_DISTANCE('$point',$geom) LIMIT 1;");
@@ -101,7 +105,7 @@ if($flag == 1) {
     : " AND (sg.da_tipo='altro' AND sg.a_tipo='altro');";
   */
   //CON INCLUDI I NODI INVECE...
-  $sql.= " AND (((sg.da_tipo='altro' ".($includeVertex ? "and sg.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? "or sg.da_nodo in ($excludeVertex)": "").") AND ((sg.a_tipo='altro' ".($includeVertex ? " and sg.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? "or sg.a_nodo in ($excludeVertex)" : "")."));";
+  $sql.= " AND (((sg.da_tipo in $otherListStr ".($includeVertex ? "and sg.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? "or sg.da_nodo in ($excludeVertex)": "").") AND ((sg.a_tipo in $otherListStr ".($includeVertex ? " and sg.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? "or sg.a_nodo in ($excludeVertex)" : "")."));";
 
   $stmt = $db->prepare($sql);
   $stmt->execute();
@@ -121,7 +125,7 @@ if($flag == 1) {
       ."(g.a_nodo=sg.a_nodo AND g.a_tipo='altro')OR (g.da_nodo=sg.da_nodo AND g.da_tipo='altro'));";
     */
     //CON INCLUDI I NODI INVECE
-    $sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo='altro'".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo='altro'".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo='altro'".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo='altro'".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
+    $sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo in $otherListStr ".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo in $otherListStr".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
     
     $flag = 2;
   } else
@@ -151,8 +155,10 @@ while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
   //error_log($row["da_tipo"]."---".$row["a_tipo"]);
   //error_log($row["da_nodo"]."---".$row["a_nodo"]);
   if($row["da_tipo"]!="altro" || in_array($row["da_nodo"], $bVertex))
-    $elements[$row["da_tipo"]][] = $row["da_nodo"];
+  //if(!in_array($row["da_tipo"],array("altro", "valvola sfiato","valvola drenaggio")) || in_array($row["da_nodo"],$bVertex))
+    $elements[$row["da_tipo"]][] = $row["da_nodo"]; 
   if($row["a_tipo"]!="altro" || in_array($row["a_nodo"], $bVertex))
+  //if(!in_array($row["a_tipo"],array("altro", "valvola sfiato", "valvola drenaggio")) || in_array($row["a_nodo"], $bVertex))
     $elements[$row["a_tipo"]][] = $row["a_nodo"];
 }
 print_debug($sql,null,'condotta');

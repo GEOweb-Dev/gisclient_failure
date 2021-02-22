@@ -50,28 +50,25 @@
 
   function reportComponenti($db, $arr, $schema) {
     $resultValvola = "";
-    $headerValvola = "";
-    $headerSott = "";
-    $resultSott = "";
+    $resultCamera = "";
+    $resultPozzetto = "";
+    $resultPompaggio = "";
+    $resultStazione = "";
+    $resultCentrale = "";
+    $header = "";
     $dalmino = "";
     foreach($arr as $jj) {
       if(substr($jj->tipo, 0, strlen("valvola")) == "valvola") {
-        //teleriscaldamento.ocl_ut_h_baricentri baricentro da qui con objectid come chiave per bar_id--- io prendo baricentro
-        $sql = "select a.fid, c.baricentro, '' as baricentro2, a.codice_impianto as cod_imp, b.cod_magliat as cod_magliat, b.sap_anno_costr,"
-          ."b.sap_Cod_coib, b.sap_cod_man, b.sap_cod_posiz, b.sap_cod_tipo, b.sap_cod_uso, b.sap_data_funz, b.sap_diam, b.sap_id, b.sap_id_Valvola, b.sap_indirizzo, "
-          ."b.sap_mese_costr, b.sap_prod, b.sap_serv, b.sap_serv_tipo, extract(year from a.data_Creazione) as sys_anno_ins, substring(a.comm_id from 5) as sys_cod_comm,"
-          ."extract(day from a.data_creazione) as sys_giorno_ins, '' as sys_id_nodo, extract(month from a.data_creazione) as sys_mese_ins, "
-          ."a.id_tipo_verso as sys_verso_nod from $schema.fcl_h_isolation_device as a left join $schema.ocl_ut_h_baricentri as c on a.bar_id=c.obj_id "
-          ."inner join $schema.sap_h_isolation_device as b on "
-          ."a.codice_sap = b.sap_id where a.codice_sap='".$jj->codice_sap."'";
+	$sql = "select concat('fcl_h_isolation_device_',id_tipologia) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_isolation_device "
+          ."where codice_sap='".$jj->codice_sap."' and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-          $emp = empty($headerValvola);
+          $emp = empty($header);
           foreach($row as $pk=>$pp) {
             if($emp)
-              $headerValvola.=$pk.";"; 
+              $header.=$pk.";"; 
             $dalmino .= $pp.";";
           }
           $dalmino = substr($dalmino, 0, strlen($dalmino)-1);
@@ -79,33 +76,50 @@
         $resultValvola .= $dalmino."\r\n"; 
         $dalmino ="";
       }
-      if(substr($jj->tipo, 0, strlen("sottostazione")) == "sottostazione") {
-        $sql = "select a.fid as sys_gid, 'LIV.' || b.sap_cod_ucr as sap_cod_ucr, a.codice_impianto as cod_imp, "
-          ."a.id_telecontrollo as cod_telec, "
-          ."a.id_teleraffrescamento as cod_teler, '' as delta_p_calc, '' as delta_p_ril, a.potenza_calcolo, b.sap_Accesso, b.sap_anno_costr, b.sap_baricentro,"
-          ."b.sap_cod_cesp, b.sap_cod_compet, b.sap_cod_forn, b.sap_cod_pozz, b.sap_cod_prop, b.sap_cod_utz, b.sap_cod_zona, b.sap_cout, b.sap_data_dis,b.sap_data_Funz, "
-          ."b.sap_id, b.sap_indirizzo, b.sap_mese_costr, b.sap_num_sst, b.sap_pot, b.sap_prod, b.sap_Stato, b.sap_Vol, extract(year from a.data_creazione) as sys_anno_ins, "
-          ."substring(a.comm_id from 5) as sys_cod_com, extract(day from a.data_creazione) as sys_giorno_ins, '' as sys_id_nodo, "
-          ."extract(month from a.data_creazione) as sys_mese_ins, '' as sys_stato, '' as sys_update from $schema.fcl_h_service as a inner join "
-          ."$schema.sap_h_service as b on a.codice_sap=b.sap_id and b.sap_cod_ucr is not null where a.codice_sap='".$jj->codice_sap."'";
+      if(substr($jj->tipo, 0, strlen("camera"))== "camera" || substr($jj->tipo, 0, strlen("pozzetto"))== "pozzetto") {
+        $sql = "select concat('fcl_h_component_',gtype_id) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_component "
+	  ."where codice_sap='".$jj->codice_sap."' and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-          $emp = empty($headerSott);
+          $emp = empty($header);
           foreach($row as $pk=>$pp) {
             if($emp)
-              $headerSott.=$pk.";"; 
+              $header.=$pk.";"; 
             $dalmino .= $pp.";";
           }
           $dalmino = substr($dalmino, 0, strlen($dalmino)-1);
-        }
-        $resultSott .= $dalmino."\r\n"; 
-        $dalmino = "";
+	}
+	if(substr($jj->tipo, 0, strlen("camera"))=="camera")
+          $resultCamera .= $dalmino."\r\n"; 
+	else 
+          $resultPozzetto .= $dalmino."\r\n";
+        $dalmino ="";
+      }
+      if(substr($jj->tipo, 0, strlen("stazione"))== "stazione" || substr($jj->tipo, 0, strlen("centrale"))== "centrale") {
+        $sql = "select concat('fcl_h_installation_',gtype_id) as id_classe, descrizione as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_installation "
+		."where fid='".substr($jj->id, strrpos($jj->id, ".")+1)."' and id_stato=3";
+        error_log($sql);
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          $emp = empty($header);
+          foreach($row as $pk=>$pp) {
+            if($emp)
+              $header.=$pk.";"; 
+            $dalmino .= $pp.";";
+          }
+          $dalmino = substr($dalmino, 0, strlen($dalmino)-1);
+	}
+	if(substr($jj->tipo, 0, strlen("stazione"))=="stazione")
+          $resultStazione .= $dalmino."\r\n"; 
+	else 
+          $resultCentrale .= $dalmino."\r\n";
+        $dalmino ="";
       }
     }
-    return (!empty($headerValvola) ? "SITAES_TLR_2070;\r\n".$headerValvola."\r\n".$resultValvola."\r\n" : "")
-      .(!empty($headerSott) ? "SITAES_TLR_2230;\r\n".$headerSott."\r\n".$resultSott : "");
+    return $header."\r\n".$resultValvola.$resultCamera.$resultPozzetto.$resultCentrale.$resultStazione;
   }
   
   function reportSottostazioni($db, $arr, $schema) {
