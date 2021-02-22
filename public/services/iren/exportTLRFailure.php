@@ -20,7 +20,6 @@
   usort($arr, function($a, $b) {
     return strcmp($a->id, $b->id);
   });
-
   switch($operation) {
     case 3:
       $red = reportSottostazioni($db, $arr, $SCHEMA);
@@ -58,9 +57,10 @@
     $header = "";
     $dalmino = "";
     foreach($arr as $jj) {
+      $idObj = substr($jj->id, strrpos($jj->id, ".") + 1);
+      error_log($jj->tipo);
       if(substr($jj->tipo, 0, strlen("valvola")) == "valvola") {
-	$sql = "select concat('fcl_h_isolation_device_',id_tipologia) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_isolation_device "
-          ."where codice_sap='".$jj->codice_sap."' and id_stato=3";
+	$sql = "select concat('fcl_h_isolation_device_',id_tipologia) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_isolation_device where fid=".$idObj." and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
@@ -77,8 +77,7 @@
         $dalmino ="";
       }
       if(substr($jj->tipo, 0, strlen("camera"))== "camera" || substr($jj->tipo, 0, strlen("pozzetto"))== "pozzetto") {
-        $sql = "select concat('fcl_h_component_',gtype_id) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_component "
-	  ."where codice_sap='".$jj->codice_sap."' and id_stato=3";
+        $sql = "select concat('fcl_h_component_',gtype_id) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_component where fid=".$idObj." and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
@@ -98,8 +97,7 @@
         $dalmino ="";
       }
       if(substr($jj->tipo, 0, strlen("stazione"))== "stazione" || substr($jj->tipo, 0, strlen("centrale"))== "centrale") {
-        $sql = "select concat('fcl_h_installation_',gtype_id) as id_classe, descrizione as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_installation "
-		."where fid='".substr($jj->id, strrpos($jj->id, ".")+1)."' and id_stato=3";
+        $sql = "select concat('fcl_h_installation_',gtype_id) as id_classe, descrizione as sap_id, '".$jj->tipo."' as descrizione from $schema.fcl_h_installation where fid=".$idObj." and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
@@ -119,7 +117,7 @@
         $dalmino ="";
       }
     }
-    return $header."\r\n".$resultValvola.$resultCamera.$resultPozzetto.$resultCentrale.$resultStazione;
+    return $header."\r\n".$resultValvola.$resultCamera.$resultPozzetto.$resultStazione.$resultCentrale;
   }
   
   function reportSottostazioni($db, $arr, $schema) {
