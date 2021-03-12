@@ -142,8 +142,8 @@
       error_log($sql);
       $stmt = $db->prepare($sql);
       $stmt->execute();
-      foreach($jj as $key=>$value)
-        $singleRow .= $value.";";
+      //foreach($jj as $key=>$value)
+      //$singleRow .= $value.";";
       $currentSens = null;
       while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $currentSens = ($row['sensibilita']==null ? $currentSens : $row['sensibilita']);
@@ -174,10 +174,10 @@
         $dalmino = substr($dalmino, 0, strlen($dalmino)-1)."\r\n";
       }
       if(empty($dalmino)) {
-        for($k=0; $k<(count($cols)-2); $k++)
-          $singleRow.=";";
+        //for($k=0; $k<(count($cols)-2); $k++)
+        //$singleRow.=";";
         $singleRow.="\r\n";
-        $result .= $singleRow;
+        //$result .= $singleRow;
       } else       
         $result .= $dalmino;/*substr($dalmino, 0, strlen($dalmino)-1)."\r\n";*/
     }
