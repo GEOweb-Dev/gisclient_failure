@@ -136,29 +136,29 @@ if(!$selectedPipe)
   die();
 
 if($flag != 2)
-  $sql = "WITH RECURSIVE search_graph(id_arco, da_nodo, a_nodo, da_tipo, a_tipo, the_geom, depth, path, stop) AS ("
-    ."SELECT g.id_arco, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.the_geom, 1, ARRAY[g.id_arco], false "
+  $sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, the_geom, depth, path, stop) AS ("
+    ."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.the_geom, 1, ARRAY[g.id_arco], false "
     ."FROM grafo.archi g where g.id_arco = $selectedPipe UNION ALL "
-    ."SELECT g.id_arco, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
+    ."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
     ."FROM grafo.archi g, search_graph sg "
     ."WHERE (sg.a_nodo = g.da_nodo OR sg.a_nodo = g.a_nodo OR sg.da_nodo = g.da_nodo OR sg.da_nodo = g.a_nodo) AND g.id_arco<>sg.id_arco AND NOT stop) "
-    ."SELECT DISTINCT id_arco, da_nodo, a_nodo, da_tipo, a_tipo FROM search_graph WHERE NOT stop LIMIT 1000";
+    ."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo FROM search_graph WHERE NOT stop LIMIT 1000";//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
 //ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
 $stmt = $db->prepare($sql);
 $stmt->execute();
 $elements = array();	
 foreach($ELEMENTS as $key=>$value)
   $elements[$key] = array();
+//$elements["condottaFid"]=array();
 //error_log(json_encode($bVertex));
 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-  $elements["condotta"][] = $row["id_arco"];
+  //$elements["condotta"][] = $row["id_arco"];
+  $elements["condotta"][] = $row["id_elemento"];//20210311 MZ -> id_elemento non id_arco, corrispondente al fid
   //error_log($row["da_tipo"]."---".$row["a_tipo"]);
   //error_log($row["da_nodo"]."---".$row["a_nodo"]);
   if($row["da_tipo"]!="altro" || in_array($row["da_nodo"], $bVertex))
-  //if(!in_array($row["da_tipo"],array("altro", "valvola sfiato","valvola drenaggio")) || in_array($row["da_nodo"],$bVertex))
     $elements[$row["da_tipo"]][] = $row["da_nodo"]; 
   if($row["a_tipo"]!="altro" || in_array($row["a_nodo"], $bVertex))
-  //if(!in_array($row["a_tipo"],array("altro", "valvola sfiato", "valvola drenaggio")) || in_array($row["a_nodo"], $bVertex))
     $elements[$row["a_tipo"]][] = $row["a_nodo"];
 }
 print_debug($sql,null,'condotta');
@@ -167,6 +167,7 @@ print_debug($elements,null,'condotta');
 $geom = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? $GEOM_FIELD :  ($transform."($GEOM_FIELD,'".$SRS[$GEOM_SRID]."','".$SRS[$srid]."',".$srid.")");
 $table = $ELEMENTS["condotta"]["featureType"]["table"];
 $condition = $ELEMENTS["condotta"]["featureType"]["condition"];
+//$sql = "SELECT ST_XMin(ST_Extent($geom)),ST_YMin(ST_Extent($geom)),ST_XMax(ST_Extent($geom)),ST_YMax(ST_Extent($geom)) FROM $SCHEMA.$table WHERE $condition and $FID_FIELD IN (".implode(",",$elements["condotta"]).");";
 $sql = "SELECT ST_XMin(ST_Extent($geom)),ST_YMin(ST_Extent($geom)),ST_XMax(ST_Extent($geom)),ST_YMax(ST_Extent($geom)) FROM $SCHEMA.$table WHERE $condition and $FID_FIELD IN (".implode(",",$elements["condotta"]).");";
 $stmt = $db->prepare($sql);
 $stmt->execute();
@@ -187,6 +188,7 @@ $condition = $ELEMENTS["condotta"]["featureType"]["condition"];
 //ELENCO DEI CAMPI PER LA QUERY
 foreach($ELEMENTS["condotta"]["featureType"]["properties"] as $field)
   $fields[]=$field["name"];
+//$sql = "SELECT $FID_FIELD,ST_AsText($geom) as geom,".implode(",",$fields)." FROM $SCHEMA.$table WHERE $condition and $FID_FIELD IN (".implode(",",$elements["condotta"]).");";
 $sql = "SELECT $FID_FIELD,ST_AsText($geom) as geom,".implode(",",$fields)." FROM $SCHEMA.$table WHERE $condition and $FID_FIELD IN (".implode(",",$elements["condotta"]).");";
 print_debug($sql,null,'condotta');
 $stmt = $db->prepare($sql);
@@ -234,7 +236,7 @@ foreach($elements as $key => $idList){
         ."and ".(empty($join) ? "" : "a.")."$FID_FIELD IN (SELECT id_elemento FROM grafo.nodi WHERE id_nodo IN(".implode(",",$idList).")) "
         .($groupBy ? "group by a.$FID_FIELD, geom, ".implode(",",array_slice($fields,0,count($fields)-1)) : "")
         .";";
-      //error_log($sql);
+     error_log($sql);
       print_debug($sql,null,'condotta');
       $stmt = $db->prepare($sql);
       $stmt->execute();

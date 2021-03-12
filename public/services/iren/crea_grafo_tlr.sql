@@ -1,4 +1,18 @@
-﻿-- CREA UN ARRAY AGGREGANDO GLI OGGETTI
+﻿DO $$
+DECLARE
+    arco_fid integer := 0;
+    node_id_check integer := 0;
+    num_splits integer := 1;
+    geometry_arc geometry;
+    geometry_point geometry;
+    geometry_fence geometry;
+    geometry_tmp geometry;
+    geometry_tmp_coll geometry;
+    geometry_single_split geometry;
+    crs_split REFCURSOR;
+    rcd   RECORD;
+BEGIN
+-- CREA UN ARRAY AGGREGANDO GLI OGGETTI
 DROP AGGREGATE IF EXISTS array_accum (anyelement);
 CREATE AGGREGATE array_accum (anyelement)
 (
@@ -11,9 +25,11 @@ CREATE AGGREGATE array_accum (anyelement)
 drop schema if exists grafo cascade;
 create schema grafo;
 -- TABELLA DEGLI ARCHI
+CREATE SEQUENCE grafo.archi_arco_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
 CREATE TABLE grafo.archi AS
 SELECT 
-   fid AS id_arco, -- fid è la chiave anzichè gs_id
+   nextval('grafo.archi_arco_id_seq'::regclass)::integer as id_arco,
+   fid AS id_elemento, -- fid è la chiave anzichè gs_id
    NULL::integer as da_nodo,
    NULL::integer as a_nodo,
    NULL::character varying as da_tipo,
@@ -22,7 +38,106 @@ SELECT
 FROM
    --acqua.ratraccia_g;
    teleriscaldamento.fcl_h_ww_section
-where id_tipo_verso in (1,3);
+WHERE id_tipo_verso in (1,3)
+AND fid NOT IN (
+   SELECT DISTINCT l.fid
+   FROM teleriscaldamento.fcl_h_ww_section l, 
+   (SELECT * from 
+      ( -- Punti iniziali tratta
+       SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) 
+       UNION ALL 
+        -- Punti finali tratta
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3)
+       UNION ALL 
+        -- Valvole sfiato
+       SELECT geom AS the_geom 
+       FROM teleriscaldamento.fcl_h_isolation_device
+       WHERE id_tipologia=4 and id_stato=3
+       UNION ALL 
+        -- Valvole drenaggio
+       SELECT geom AS the_geom 
+       FROM teleriscaldamento.fcl_h_isolation_device
+       WHERE id_tipologia=5 and id_stato=3
+      ) AS foo GROUP BY the_geom
+   ) AS x
+   WHERE l.id_tipo_verso in (1,3)
+   AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
+   and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
+   AND ST_DWithin(l.geom,x.the_geom,0.01)
+);
+
+OPEN crs_split FOR 
+   SELECT DISTINCT l.fid,l.geom as the_geom,x.the_geom as the_geom_node 
+   FROM teleriscaldamento.fcl_h_ww_section l, 
+   (SELECT * FROM 
+      ( -- Punti iniziali tratta
+       SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) 
+       UNION ALL 
+        -- Punti finali tratta
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3)
+       UNION ALL 
+        -- Valvole sfiato
+       SELECT geom AS the_geom 
+       FROM teleriscaldamento.fcl_h_isolation_device
+       WHERE id_tipologia=4 and id_stato=3
+       UNION ALL 
+        -- Valvole drenaggio
+       SELECT geom AS the_geom 
+       FROM teleriscaldamento.fcl_h_isolation_device
+       WHERE id_tipologia=5 and id_stato=3
+      ) AS foo GROUP BY the_geom
+   ) AS x 
+   WHERE l.id_tipo_verso IN (1,3) 
+   AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
+   AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
+   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   ORDER BY l.fid;
+LOOP
+   FETCH crs_split INTO rcd;
+   IF (arco_fid <> rcd.fid AND arco_fid <> 0) OR NOT FOUND THEN
+      num_splits := 1;
+      LOOP
+	 IF ST_GeometryN(geometry_arc,num_splits) IS NULL THEN
+            EXIT;
+         END IF;
+         INSERT INTO grafo.archi (id_arco,id_elemento,da_nodo,a_nodo,da_tipo,a_tipo,the_geom)
+         VALUES (
+            nextval('grafo.archi_arco_id_seq'::regclass)::integer,
+            arco_fid,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            ST_GeometryN(geometry_arc,num_splits));
+            num_splits := num_splits+1;
+      END LOOP;
+   END IF;
+   EXIT WHEN NOT FOUND;
+   IF arco_fid <> rcd.fid THEN
+      arco_fid := rcd.fid;
+      geometry_arc := rcd.the_geom;
+   END IF;
+   num_splits := 1;
+   geometry_tmp_coll := NULL;
+   LOOP
+      geometry_tmp := ST_GeometryN(geometry_arc,num_splits);
+      geometry_tmp := ST_Split(geometry_tmp, rcd.the_geom_node);
+      geometry_tmp_coll = ST_CollectionHomogenize(ST_Collect(geometry_tmp_coll, geometry_tmp));
+      num_splits := num_splits+1;
+      IF num_splits > ST_NumGeometries(geometry_arc) THEN
+         EXIT;
+      END IF;
+   END LOOP;
+   geometry_arc := geometry_tmp_coll;
+END LOOP;
 
 ALTER TABLE grafo.archi ADD CONSTRAINT archi_pkey PRIMARY KEY(id_arco); 
 
@@ -37,20 +152,18 @@ SELECT
 	the_geom
 FROM (
   SELECT 
-    ST_StartPoint(geom) AS the_geom, 
-    fid AS arco_uscente, -- fid anzichè gs_id
+    ST_StartPoint(the_geom) AS the_geom, 
+    id_arco AS arco_uscente, -- fid anzichè gs_id
     NULL::integer AS arco_entrante
   --FROM acqua.ratraccia_g 
-  FROM teleriscaldamento.fcl_h_ww_section
-  where id_tipo_verso in (1,3)
+  FROM grafo.archi
   UNION ALL
   SELECT 
-    ST_EndPoint(geom) AS the_geom, 
+    ST_EndPoint(the_geom) AS the_geom, 
     NULL::integer AS arco_uscente,
-    fid AS arco_entrante -- fid anzichè gs_id
+    id_arco AS arco_entrante -- fid anzichè gs_id
   --FROM acqua.ratraccia_g 
-  FROM teleriscaldamento.fcl_h_ww_section
-  where id_tipo_verso in (1,3)
+  FROM grafo.archi
 ) AS foo
 GROUP BY the_geom;
 ALTER TABLE grafo.nodi ADD PRIMARY KEY (id_nodo);
@@ -236,3 +349,4 @@ CREATE TABLE grafo.ricerca
 --        WHERE g.da_nodo = sg.a_nodo AND (g.da_tipo='altro') AND NOT cycle
 --)
 --SELECT  da_nodo, a_nodo, da_tipo, a_tipo, gs_id, the_geom FROM search_graph  limit 10000;
+END$$;
