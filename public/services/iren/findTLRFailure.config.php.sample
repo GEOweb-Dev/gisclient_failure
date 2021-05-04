@@ -2,6 +2,8 @@
 /***** CONFIGURAZIONE ELEMENTI DA INTERCETTARE : condotta, valvola zona, valvola magliatura, camera valvola, camera polivalente, camera baricentro, 
  * pozzetto valvola, pozzetto baricentro, sottostazione utenza, stazione di pompaggio, centale IREN ****/
 define('POSTGIS_TRANSFORM_GEOMETRY','postgis_transform_geometry');
+$EXCLUDED_ELEMENTS = array('valvola sfiato', 'valvola drenaggio');
+$OTHERS = array_merge(array('altro'),$EXCLUDED_ELEMENTS);
 $DB_PLUGIN = "";//COMPLETARE
 $SCHEMA = "teleriscaldamento";
 $FID_FIELD = "fid";

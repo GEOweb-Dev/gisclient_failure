@@ -22,13 +22,16 @@ CREATE AGGREGATE array_accum (anyelement)
 );
 
 
-drop schema if exists grafo cascade;
-create schema grafo;
+--drop schema if exists grafo cascade;
+create schema if not exists grafo;
 -- TABELLA DEGLI ARCHI
-CREATE SEQUENCE grafo.archi_arco_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
-CREATE TABLE grafo.archi AS
+DROP SEQUENCE if exists grafo.archi_arco_id_seq_TLR;
+CREATE SEQUENCE grafo.archi_arco_id_seq_TLR INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
+
+DROP TABLE if exists grafo.archi_TLR cascade;
+CREATE TABLE grafo.archi_TLR AS
 SELECT 
-   nextval('grafo.archi_arco_id_seq'::regclass)::integer as id_arco,
+   nextval('grafo.archi_arco_id_seq_TLR'::regclass)::integer as id_arco,
    fid AS id_elemento, -- fid è la chiave anzichè gs_id
    NULL::integer as da_nodo,
    NULL::integer as a_nodo,
@@ -108,9 +111,9 @@ LOOP
 	 IF ST_GeometryN(geometry_arc,num_splits) IS NULL THEN
             EXIT;
          END IF;
-         INSERT INTO grafo.archi (id_arco,id_elemento,da_nodo,a_nodo,da_tipo,a_tipo,the_geom)
+         INSERT INTO grafo.archi_TLR (id_arco,id_elemento,da_nodo,a_nodo,da_tipo,a_tipo,the_geom)
          VALUES (
-            nextval('grafo.archi_arco_id_seq'::regclass)::integer,
+            nextval('grafo.archi_arco_id_seq_TLR'::regclass)::integer,
             arco_fid,
             NULL,
             NULL,
@@ -139,14 +142,17 @@ LOOP
    geometry_arc := geometry_tmp_coll;
 END LOOP;
 
-ALTER TABLE grafo.archi ADD CONSTRAINT archi_pkey PRIMARY KEY(id_arco); 
+ALTER TABLE grafo.archi_TLR ADD CONSTRAINT archi_TLR_pkey PRIMARY KEY(id_arco); 
 
 
 -- TABELLA DEI NODI RAGGRUPPATI PER GEOMETRIA E ASSEGNAZIONE DI ID UNIVOCO
-CREATE SEQUENCE grafo.nodi_nodo_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
-CREATE TABLE grafo.nodi AS
+DROP SEQUENCE if exists grafo.nodi_nodo_id_seq_TLR;
+CREATE SEQUENCE grafo.nodi_nodo_id_seq_TLR INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
+
+DROP TABLE if exists grafo.nodi_TLR cascade;
+CREATE TABLE grafo.nodi_TLR AS
 SELECT 
-	nextval('grafo.nodi_nodo_id_seq'::regclass)::integer as id_nodo,
+	nextval('grafo.nodi_nodo_id_seq_TLR'::regclass)::integer as id_nodo,
 	array_accum(arco_entrante) AS arco_entrante,
 	array_accum(arco_uscente) AS arco_uscente,
 	the_geom
@@ -155,22 +161,21 @@ FROM (
     ST_StartPoint(the_geom) AS the_geom, 
     id_arco AS arco_uscente, -- fid anzichè gs_id
     NULL::integer AS arco_entrante
-  --FROM acqua.ratraccia_g 
-  FROM grafo.archi
+  FROM grafo.archi_TLR
   UNION ALL
   SELECT 
     ST_EndPoint(the_geom) AS the_geom, 
     NULL::integer AS arco_uscente,
     id_arco AS arco_entrante -- fid anzichè gs_id
   --FROM acqua.ratraccia_g 
-  FROM grafo.archi
+  FROM grafo.archi_TLR
 ) AS foo
 GROUP BY the_geom;
-ALTER TABLE grafo.nodi ADD PRIMARY KEY (id_nodo);
+ALTER TABLE grafo.nodi_TLR ADD PRIMARY KEY (id_nodo);
 
 
 --ESPANDO LA TABELLA DEI NODI PER POTER FARE LE QUERY DI JOIN E AGGIORNARE LA TABELLA DEGLI ARCHI
-UPDATE grafo.archi a SET da_nodo = b.id_nodo FROM
+UPDATE grafo.archi_TLR a SET da_nodo = b.id_nodo FROM
 	(WITH 
 	nodi_serie AS (
 		  SELECT 
@@ -179,7 +184,7 @@ UPDATE grafo.archi a SET da_nodo = b.id_nodo FROM
 		    generate_series(1, array_upper(arco_uscente, 1)) AS uscente_upper,
 		    arco_entrante, 
 		    generate_series(1, array_upper(arco_entrante, 1)) AS entrante_upper
-		  FROM grafo.nodi
+		  FROM grafo.nodi_TLR
 	), 
 	nodi_espansi AS(
 		SELECT 
@@ -192,7 +197,7 @@ UPDATE grafo.archi a SET da_nodo = b.id_nodo FROM
 WHERE a.id_arco = b.arco_uscente;
 
 
-UPDATE grafo.archi a SET a_nodo = b.id_nodo FROM
+UPDATE grafo.archi_TLR a SET a_nodo = b.id_nodo FROM
 	(WITH 
 	nodi_serie AS (
 		  SELECT 
@@ -201,7 +206,7 @@ UPDATE grafo.archi a SET a_nodo = b.id_nodo FROM
 		    generate_series(1, array_upper(arco_uscente, 1)) AS uscente_upper,
 		    arco_entrante, 
 		    generate_series(1, array_upper(arco_entrante, 1)) AS entrante_upper
-		  FROM grafo.nodi
+		  FROM grafo.nodi_TLR
 	), 
 	nodi_espansi AS(
 		SELECT 
@@ -219,105 +224,86 @@ WHERE a.id_arco = b.arco_entrante;
 
 -- AGGIORNO LA TIPOLOGIA DEI NODI IN RELAZIONE AGLI OGGETTI CON IL NOME DEL QUERY LAYER IN AUTHOR PER AVERE LE DEFINIZIONE DEI CAMPI 
 -- TODO DATO UN ELENCO DI LIVELLI GISCLIENT QUESTO VIENE FATTO AUTOMATICAMENTE
-ALTER TABLE grafo.nodi ADD COLUMN tipo_nodo character varying;
-ALTER TABLE grafo.nodi ADD COLUMN id_elemento integer;
+ALTER TABLE grafo.nodi_TLR ADD COLUMN tipo_nodo character varying;
+ALTER TABLE grafo.nodi_TLR ADD COLUMN id_elemento integer;
 
 -- VALVOLE ZONA (1)/MAGLIATURA (2)
-update grafo.nodi set tipo_nodo='valvola zona', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola zona', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato_valvola not in (4,5)) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola zona CR', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato_valvola=5) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola zona AR', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato_valvola=4) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola zona', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola magliatura', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
-update grafo.nodi set tipo_nodo='valvola magliatura', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola magliatura', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato_valvola not in (4,5)) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola magliatura CR', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato_valvola=5) as foo where nodi.id_nodo=foo.id_nodo;
---update grafo.nodi set tipo_nodo='valvola magliatura AR', id_elemento = fid from
---(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
---ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato_valvola=4) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='valvola sfiato', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='valvola drenaggio', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=5 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola sfiato', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola drenaggio', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=5 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
 -- CAMERE gtype=10, VALVOLA (4)/ POLIVALENTI (3)/ BARICENTRO (1)/
-update grafo.nodi set tipo_nodo='camera valvola', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=4 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='camera polivalente', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='camera baricentro', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=1 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='camera valvola', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='camera polivalente', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='camera baricentro', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=1 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
 
 -- POZZETTI gtype=20, VALVOLA (4)/ BARICENTRO (3)/ POLIVALENTE (5)/
-update grafo.nodi set tipo_nodo='pozzetto valvola', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=4 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='pozzetto baricentro', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
-update grafo.nodi set tipo_nodo='pozzetto polivalente', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=5 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='pozzetto valvola', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='pozzetto baricentro', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='pozzetto polivalente', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=5 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
 --
 -- SOTTOSTAZIONI
-update grafo.nodi set tipo_nodo='sottostazione utenza', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_service e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='sottostazione utenza', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_service e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 -- STAZIONI DI POMPAGGIO
-update grafo.nodi set tipo_nodo='stazione di pompaggio', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_installation e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='stazione di pompaggio', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_installation e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 -- CENTRALI IREN
-update grafo.nodi set tipo_nodo='centrale IREN', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi n, teleriscaldamento.fcl_h_installation e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_stato=3) as foo where nodi.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='centrale IREN', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_installation e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
 --ELEMENTO GENERICO
-update grafo.nodi set tipo_nodo='altro' where tipo_nodo is null;
+update grafo.nodi_TLR set tipo_nodo='altro' where tipo_nodo is null;
 
-CREATE INDEX nodi_tipo_idx ON grafo.nodi (tipo_nodo);
-
+CREATE INDEX nodi_TLR_tipo_idx ON grafo.nodi_TLR (tipo_nodo);
 
 -- AGGIORNO LA TABELLA ARCHI CON I TIPI E INDICI
-UPDATE grafo.archi set da_tipo = nodi.tipo_nodo FROM grafo.nodi WHERE da_nodo=nodi.id_nodo;
-UPDATE grafo.archi set a_tipo = nodi.tipo_nodo FROM grafo.nodi WHERE a_nodo=nodi.id_nodo;
-CREATE INDEX archi_da_nodo_idx ON grafo.archi (da_nodo);
-CREATE INDEX archi_a_nodo_idx ON grafo.archi (a_nodo);
-CREATE INDEX archi_the_geom_gist ON grafo.archi USING gist (the_geom);
+UPDATE grafo.archi_TLR set da_tipo = nodi_TLR.tipo_nodo FROM grafo.nodi_TLR WHERE da_nodo=nodi_TLR.id_nodo;
+UPDATE grafo.archi_TLR set a_tipo = nodi_TLR.tipo_nodo FROM grafo.nodi_TLR WHERE a_nodo=nodi_TLR.id_nodo;
+CREATE INDEX archi_TLR_da_nodo_idx ON grafo.archi_TLR (da_nodo);
+CREATE INDEX archi_TLR_a_nodo_idx ON grafo.archi_TLR (a_nodo);
+CREATE INDEX archi_TLR_the_geom_gist ON grafo.archi_TLR USING gist (the_geom);
 
 
 -- 20201002 MZ - rimossa temporaneamente parte del TEST, da concordare eventualmente con Zio
 -- TEST 
 
-drop table if exists grafo.ricerca;
-CREATE TABLE grafo.ricerca
-(
-  id serial,
-  a_nodo integer,
-  a_tipo character varying,
-  gs_id integer,
-  the_geom geometry
-);
+--drop table if exists grafo.ricerca;
+--CREATE TABLE grafo.ricerca
+--(
+--  id serial,
+--  a_nodo integer,
+--  a_tipo character varying,
+--  gs_id integer,
+--  the_geom geometry
+--);
 
 -- SELEZIONE DALLA TRATTA CON ESCLUSIONE DI ELEMENTI
 --insert into grafo.ricerca
