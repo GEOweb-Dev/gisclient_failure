@@ -1,7 +1,7 @@
 <?php
 require_once "find".$_REQUEST["domain"]."Failure.config.php";
 require_once "../../../config/config.php";
-
+error_log(json_encode($ELEMENTS));
 //20210218 MZ -> si passa da 'altro' a 'altro','valvola sfiato', 'valvola drenaggio'
 $otherListStr = "('".implode("','", $OTHERS)."')";//"('altro', 'valvola sfiato', 'valvola drenaggio')";
 //fine MZ
@@ -60,12 +60,14 @@ $bVertex = $includeVertex ? explode(",",$includeVertex) : array();
 $excludeVertex = false;
 $aVertex=array();
 //Elementi da escludere:
-$stmt = $db->prepare("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
-	." where ".(!empty($_REQUEST["exclude"]) ? "id_elemento in (".$_REQUEST["exclude"].") " : "")
-	.((!empty($EXCLUDED_ELEMENTS)) ? ((!empty($_REQUEST["exclude"]) ? "or": "")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : ""));
-$stmt->execute();
-while($row = $stmt->fetch(PDO::FETCH_ASSOC))
-	$aVertex[]=$row["id_nodo"];
+if(!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)){
+	$stmt = $db->prepare("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
+		.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".$_REQUEST["exclude"].") " : "")
+		.((!empty($EXCLUDED_ELEMENTS)) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : ""));
+	$stmt->execute();
+	while($row = $stmt->fetch(PDO::FETCH_ASSOC))
+		$aVertex[]=$row["id_nodo"];
+}
 $excludeVertex = !empty($aVertex) ? implode(',',$aVertex) : false;
 
 //CON INCLUDI I NODI INVECE...
@@ -99,8 +101,8 @@ if($flag == 1) {
 	$selectedNextPipe = $row["id_arco"];
 	//CASO DI 2 ARCHI CON NODI TERMINALI UNITI DA NODO NON TERMINALE (?????)  VALVOLA - ALTRO - VALVOLA
 	if(!$selectedNextPipe) {
-		$sql="SELECT id_arco,da_nodo,a_nodo, da_tipo,a_tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
-			."SELECT g.id_arco, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
+		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo,a_tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
+			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
 			."WHERE sg.id_arco = $selectedPipe AND g.id_arco <> sg.id_arco";
 		//CON INCLUDI I NODI INVECE
 		$sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo in $otherListStr ".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo in $otherListStr".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
@@ -121,9 +123,10 @@ if($flag != 2)
 		."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo FROM search_graph WHERE NOT stop LIMIT 1000";
 		//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
 //ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
+error_log($sql);
 $stmt = $db->prepare($sql);
 $stmt->execute();
-$elements = array();	
+$elements = array();
 foreach($ELEMENTS as $key=>$value)
 	$elements[$key] = array();
 while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -183,10 +186,10 @@ while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
 
 $ELEMENTS["condotta"]["features"] = array("type"=>"FeatureCollection","features"=>$features);
 unset($elements["condotta"]);
-//error_log(json_encode($elements));
-
+error_log(json_encode($elements));
+//error_log(json_encode($ELEMENTS));
 foreach($elements as $key => $idList){
-	//error_log($key."----".json_encode($idList));
+	error_log($key."----".json_encode($idList));
 	$features = array();
 	if(!empty($idList)){
 		$fields = array();
@@ -202,8 +205,8 @@ foreach($elements as $key => $idList){
 				$fields[]=$field["name"];
 			$sql = "SELECT ".(empty($join) ? "" : "a.")."$FID_FIELD,ST_AsText($geom) as geom, "
 				.(empty($exclusion) ? str_replace(" fid ", empty($join) ? " fid " : " a.fid ",$excludeRequested) : $exclusion)
-				.",".implode(",",$fields)." FROM $SCHEMA.$table $join WHERE $condition "
-				."and ".(empty($join) ? "" : "a.")."$FID_FIELD IN (SELECT id_elemento FROM grafo.nodi_".$_REQUEST['domain']." WHERE id_nodo IN(".implode(",",$idList).")) "
+				.(!empty($fields) ? "," : "").implode(",",$fields)." FROM $SCHEMA.$table $join WHERE $condition "
+				.(!empty($condition) ? "and " : " ").(empty($join) ? "" : "a.")."$FID_FIELD IN (SELECT id_elemento FROM grafo.nodi_".$_REQUEST['domain']." WHERE id_nodo IN(".implode(",",$idList).")) "
 				.($groupBy ? "group by a.$FID_FIELD, geom, ".implode(",",array_slice($fields,0,count($fields)-1)) : "").";";
 			error_log($sql);
       			print_debug($sql,null,'condotta');
