@@ -57,7 +57,7 @@ AND fid NOT IN (
         -- Valvole
        SELECT geom AS the_geom 
        FROM acquedotto.fcl_w_isolation_device
-       WHERE id_stato=3 and id_gestore in (15,999) and gtype_id in (10,20)
+       WHERE id_stato=3 and id_gestore in (15,999) and gtype_id in (10)
        /*UNION ALL 
         -- Valvole drenaggio
        SELECT geom AS the_geom 
@@ -88,7 +88,7 @@ OPEN crs_split FOR
         -- Valvole 
        SELECT geom AS the_geom 
        FROM acquedotto.fcl_w_isolation_device
-       WHERE id_stato=3 and id_gestore in (15,999) and gtype_id in (10,20)
+       WHERE id_stato=3 and id_gestore in (15,999) and gtype_id in (10)
        /*UNION ALL 
         -- Valvole drenaggio
        SELECT geom AS the_geom 
@@ -227,7 +227,7 @@ ALTER TABLE grafo.nodi_acqua ADD COLUMN id_elemento integer;
 -- VALVOLE
 update grafo.nodi_acqua set tipo_nodo='valvola', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_acqua n, acquedotto.fcl_w_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_stato=3 and e.id_gestore in (15,999) and e.gtype_id in (10,20)) as foo where nodi_acqua.id_nodo=foo.id_nodo;
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_stato=3 and e.id_gestore in (15,999) and e.gtype_id in (10)) as foo where nodi_acqua.id_nodo=foo.id_nodo;
 
 --
 -- TERMINALI
