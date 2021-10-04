@@ -41,7 +41,7 @@ SELECT
 FROM
    --acqua.ratraccia_g;
    teleriscaldamento.fcl_h_ww_section
-WHERE id_tipo_verso in (1,3)
+WHERE id_tipo_verso in (1,3) and id_stato = 3
 AND fid NOT IN (
    SELECT DISTINCT l.fid
    FROM teleriscaldamento.fcl_h_ww_section l, 
@@ -49,12 +49,12 @@ AND fid NOT IN (
       ( -- Punti iniziali tratta
        SELECT ST_StartPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
-       WHERE id_tipo_verso in (1,3) 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3 
        UNION ALL 
         -- Punti finali tratta
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
-       WHERE id_tipo_verso in (1,3)
+       WHERE id_tipo_verso in (1,3) and id_stato = 3
        UNION ALL 
         -- Valvole sfiato
        SELECT geom AS the_geom 
@@ -67,7 +67,7 @@ AND fid NOT IN (
        WHERE id_tipologia=5 and id_stato=3
       ) AS foo GROUP BY the_geom
    ) AS x
-   WHERE l.id_tipo_verso in (1,3)
+   WHERE l.id_tipo_verso in (1,3) and id_stato = 3
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
    AND ST_DWithin(l.geom,x.the_geom,0.01)
@@ -80,12 +80,12 @@ OPEN crs_split FOR
       ( -- Punti iniziali tratta
        SELECT ST_StartPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
-       WHERE id_tipo_verso in (1,3) 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3 
        UNION ALL 
         -- Punti finali tratta
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
-       WHERE id_tipo_verso in (1,3)
+       WHERE id_tipo_verso in (1,3) and id_stato = 3
        UNION ALL 
         -- Valvole sfiato
        SELECT geom AS the_geom 
@@ -132,7 +132,7 @@ LOOP
    geometry_tmp_coll := NULL;
    LOOP
       geometry_tmp := ST_GeometryN(geometry_arc,num_splits);
-      geometry_tmp := ST_Split(geometry_tmp, rcd.the_geom_node);
+      geometry_tmp := ST_Split(ST_Snap(geometry_tmp,rcd.the_geom_node,0.01), rcd.the_geom_node);
       geometry_tmp_coll = ST_CollectionHomogenize(ST_Collect(geometry_tmp_coll, geometry_tmp));
       num_splits := num_splits+1;
       IF num_splits > ST_NumGeometries(geometry_arc) THEN
