@@ -1,6 +1,7 @@
 ﻿DO $$
 DECLARE
     arco_fid integer := 0;
+    arco_tipo integer :=0;
     node_id_check integer := 0;
     num_splits integer := 1;
     geometry_arc geometry;
@@ -30,16 +31,16 @@ CREATE SEQUENCE grafo.archi_arco_id_seq_TLR INCREMENT 1 MINVALUE 1 MAXVALUE 9223
 
 DROP TABLE if exists grafo.archi_TLR cascade;
 CREATE TABLE grafo.archi_TLR AS
-SELECT 
+(SELECT 
    nextval('grafo.archi_arco_id_seq_TLR'::regclass)::integer as id_arco,
    fid AS id_elemento, -- fid è la chiave anzichè gs_id
    NULL::integer as da_nodo,
    NULL::integer as a_nodo,
    NULL::character varying as da_tipo,
    NULL::character varying as a_tipo,  
-   geom as the_geom
+   geom as the_geom,
+   1 as tipo 
 FROM
-   --acqua.ratraccia_g;
    teleriscaldamento.fcl_h_ww_section
 WHERE id_tipo_verso in (1,3) and id_stato = 3
 AND fid NOT IN (
@@ -55,8 +56,18 @@ AND fid NOT IN (
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
        WHERE id_tipo_verso in (1,3) and id_stato = 3
-       UNION ALL 
-        -- Valvole sfiato
+       UNION ALL
+       -- 20211005 MZ -> introduzione caso di tratte potenziali che intersecano tratte
+       select ST_StartPoint(geom) as the_geom
+       from teleriscaldamento.fcl_h_ww_section_ptz
+       where id_stato=3
+       union all
+       select ST_EndPoint(geom) as the_geom
+       from teleriscaldamento.fcl_h_ww_section_ptz
+       where id_stato=3
+       union all
+       -- fine 20211005 MZ
+       -- Valvole sfiato
        SELECT geom AS the_geom 
        FROM teleriscaldamento.fcl_h_isolation_device
        WHERE id_tipologia=4 and id_stato=3
@@ -71,23 +82,70 @@ AND fid NOT IN (
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
    AND ST_DWithin(l.geom,x.the_geom,0.01)
-);
-
-OPEN crs_split FOR 
-   SELECT DISTINCT l.fid,l.geom as the_geom,x.the_geom as the_geom_node 
-   FROM teleriscaldamento.fcl_h_ww_section l, 
-   (SELECT * FROM 
-      ( -- Punti iniziali tratta
+)) union all (
+-- 20211005 MZ -> introduzione caso di tratte potenziali che intersecano tratte
+SELECT 
+   nextval('grafo.archi_arco_id_seq_TLR'::regclass)::integer as id_arco,
+   fid AS id_elemento, -- fid è la chiave anzichè gs_id
+   NULL::integer as da_nodo,
+   NULL::integer as a_nodo,
+   NULL::character varying as da_tipo,
+   NULL::character varying as a_tipo,  
+   geom as the_geom,
+   2 as tipo 
+FROM
+   teleriscaldamento.fcl_h_ww_section_ptz
+WHERE id_stato = 3
+AND fid NOT IN (
+   SELECT DISTINCT l.fid
+   FROM teleriscaldamento.fcl_h_ww_section_ptz l, 
+   (SELECT * from 
+      (
+       SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3 
+       UNION ALL 
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3
+       UNION ALL
        SELECT ST_StartPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
        WHERE id_tipo_verso in (1,3) and id_stato = 3 
        UNION ALL 
-        -- Punti finali tratta
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM teleriscaldamento.fcl_h_ww_section 
        WHERE id_tipo_verso in (1,3) and id_stato = 3
+      ) AS foo GROUP BY the_geom
+   ) AS x
+   WHERE l.id_stato = 3
+   AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
+   and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
+   AND ST_DWithin(l.geom,x.the_geom,0.01)
+));
+
+OPEN crs_split FOR 
+   (SELECT DISTINCT l.fid,l.geom as the_geom,x.the_geom as the_geom_node, 1 as tipo 
+   FROM teleriscaldamento.fcl_h_ww_section l, 
+   (SELECT * FROM 
+      (SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3 
        UNION ALL 
-        -- Valvole sfiato
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3
+       UNION ALL
+       -- 20211005 MZ
+       SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3 
+       UNION ALL 
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3
+       -- fine MZ
+       UNION ALL
        SELECT geom AS the_geom 
        FROM teleriscaldamento.fcl_h_isolation_device
        WHERE id_tipologia=4 and id_stato=3
@@ -102,16 +160,44 @@ OPEN crs_split FOR
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.01)
-   ORDER BY l.fid;
+   ORDER BY l.fid) union all (
+   SELECT DISTINCT l.fid,l.geom as the_geom,x.the_geom as the_geom_node, 2 as tipo 
+   FROM teleriscaldamento.fcl_h_ww_section_ptz l, 
+   (SELECT * FROM 
+      (SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3 
+       UNION ALL 
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section 
+       WHERE id_tipo_verso in (1,3) and id_stato = 3
+       UNION ALL
+       -- 20211005 MZ
+       SELECT ST_StartPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3 
+       UNION ALL 
+       SELECT ST_EndPoint(geom) AS the_geom 
+       FROM teleriscaldamento.fcl_h_ww_section_ptz
+       WHERE id_stato = 3
+       -- fine MZ
+      ) AS foo GROUP BY the_geom
+   ) AS x 
+   WHERE l.id_stato=3 
+   AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
+   AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
+   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   ORDER BY l.fid
+   );
 LOOP
    FETCH crs_split INTO rcd;
-   IF (arco_fid <> rcd.fid AND arco_fid <> 0) OR NOT FOUND THEN
+   IF ((arco_fid <> rcd.fid OR arco_tipo<>rcd.tipo) AND arco_fid <> 0 and arco_tipo <> 0) OR NOT FOUND THEN
       num_splits := 1;
       LOOP
 	 IF ST_GeometryN(geometry_arc,num_splits) IS NULL THEN
             EXIT;
          END IF;
-         INSERT INTO grafo.archi_TLR (id_arco,id_elemento,da_nodo,a_nodo,da_tipo,a_tipo,the_geom)
+         INSERT INTO grafo.archi_TLR (id_arco,id_elemento,da_nodo,a_nodo,da_tipo,a_tipo,the_geom,tipo)
          VALUES (
             nextval('grafo.archi_arco_id_seq_TLR'::regclass)::integer,
             arco_fid,
@@ -119,13 +205,14 @@ LOOP
             NULL,
             NULL,
             NULL,
-            ST_GeometryN(geometry_arc,num_splits));
+            ST_GeometryN(geometry_arc,num_splits), arco_tipo);
             num_splits := num_splits+1;
       END LOOP;
    END IF;
    EXIT WHEN NOT FOUND;
-   IF arco_fid <> rcd.fid THEN
+   IF (arco_fid <> rcd.fid OR arco_tipo<>rcd.tipo) THEN
       arco_fid := rcd.fid;
+      arco_tipo := rcd.tipo;
       geometry_arc := rcd.the_geom;
    END IF;
    num_splits := 1;
@@ -270,6 +357,10 @@ ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=5 and e.
 update grafo.nodi_TLR set tipo_nodo='sottostazione utenza', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_service e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+-- UTENZA POTENZIALE
+update grafo.nodi_TLR set tipo_nodo='utenza potenziale', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_service_ptz e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_stato=2) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 -- STAZIONI DI POMPAGGIO
 update grafo.nodi_TLR set tipo_nodo='stazione di pompaggio', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_installation e where
@@ -278,7 +369,6 @@ ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_stato=3) as foo wh
 update grafo.nodi_TLR set tipo_nodo='centrale IREN', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_installation e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
-
 --ELEMENTO GENERICO
 update grafo.nodi_TLR set tipo_nodo='altro' where tipo_nodo is null;
 
