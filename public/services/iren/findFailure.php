@@ -119,8 +119,8 @@ if($flag == 1) {
 	$selectedNextPipe = $row["id_arco"];
 	//CASO DI 2 ARCHI CON NODI TERMINALI UNITI DA NODO NON TERMINALE (?????)  VALVOLA - ALTRO - VALVOLA
 	if(!$selectedNextPipe) {
-		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
-			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.tipo FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
+		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, $TIPO_FIELD FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
+			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD : "g.".$TIPO_FIELD)." FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
 			."WHERE sg.id_arco = $selectedPipe AND g.id_arco <> sg.id_arco";
 		//CON INCLUDI I NODI INVECE
 		$sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo in $otherListStr ".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo in $otherListStr".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
@@ -133,9 +133,9 @@ if(!$selectedPipe)
 	die();
 if($flag != 2)
 	$sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo, the_geom, depth, path, stop) AS ("
-		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.tipo, g.the_geom, 1, ARRAY[g.id_arco], false "
+		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, 1, ARRAY[g.id_arco], false "
 		."FROM grafo.archi_".$_REQUEST['domain']." g where g.id_arco = $selectedPipe UNION ALL "
-		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.tipo, g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
+		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
 		."FROM grafo.archi_".$_REQUEST['domain']." g, search_graph sg "
 		."WHERE (sg.a_nodo = g.da_nodo OR sg.a_nodo = g.a_nodo OR sg.da_nodo = g.da_nodo OR sg.da_nodo = g.a_nodo) AND g.id_arco<>sg.id_arco AND NOT stop) "
 		."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo FROM search_graph WHERE NOT stop LIMIT 1000";
