@@ -7,9 +7,6 @@ $otherListStr = "('".implode("','", $OTHERS)."')";//"('altro', 'valvola sfiato',
 //fine MZ
 
 $dbSchema=DB_SCHEMA;
-//20211007 MZ
-//$transform = defined('POSTGIS_TRANSFORM_GEOMETRY')?POSTGIS_TRANSFORM_GEOMETRY:'Transform_Geometry';
-//fine 20211007 MZ
 // Setto qui i parametri di trasformazione... troppo casino ricavarli dal progetto corrente
 $SRS = array(
 	'3003'=>'+proj=tmerc +lat_0=0 +lon_0=9 +k=0.999600 +x_0=1500000 +y_0=0 +ellps=intl +units=m +no_defs +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68',
@@ -42,14 +39,11 @@ if($_REQUEST["srs"] == "EPSG:".$GEOM_SRID){
 	$stmt = $db->prepare("select st_astext(st_transform(st_geomfromtext('POINT($x $y)',$srid),$GEOM_SRID))");
 	$stmt->execute();
 	$point = "st_geomfromtext('".$stmt->fetch(PDO::FETCH_NUM)[0]."',$GEOM_SRID)";
-	//$point ="'SRID=$srid;POINT($x $y)'";
-	//$geom = $transform."(the_geom,'".$SRS[$GEOM_SRID]."','".$SRS[$srid]."',".$srid.")";
 	$geom = "the_geom";
 	//fine 20211007 MZ
 	if(!empty($_REQUEST["barN"])) { 
 		$a = explode(",",$_REQUEST['barN']);
 	        //20211007 MZ	
-		//$popoint = "SRID=$srid;POINT(".trim($a[0])." ".trim($a[1]).")";
 		$stmt = $db->prepare("select st_astext(st_transform(st_geomfromtext('POINT(".trim($a[0])." ".trim($a[1]).")',$srid),$GEOM_SRID))");
 		$stmt->execute();
 		$popoint = "st_geomfromtext('".$stmt->fetch(PDO::FETCH_NUM)[0]."',$GEOM_SRID)";
@@ -74,16 +68,6 @@ $excludeVertex = false;
 $aVertex=array();
 //20211006 MZ
 //Elementi da escludere:
-/*
-if(!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)){
-	$stmt = $db->prepare("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
-		.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".$_REQUEST["exclude"].") " : "")
-		.((!empty($EXCLUDED_ELEMENTS)) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : ""));
-	$stmt->execute();
-	while($row = $stmt->fetch(PDO::FETCH_ASSOC))
-		$aVertex[]=$row["id_nodo"];
-}
-$excludeVertex = !empty($aVertex) ? implode(',',$aVertex) : false;*/
 $excludeVertex = (!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)) ? ("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
 	.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".$_REQUEST["exclude"].") " : "")
 	.(!empty($EXCLUDED_ELEMENTS) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : "")) : false;
@@ -143,7 +127,15 @@ if($flag != 2)
 //ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
 error_log($sql);
 $stmt = $db->prepare($sql);
-$stmt->execute();
+try{
+	$stmt->execute();
+}catch(PDOException $er){
+	//20211203 MZ -> tapullo mega-galattico da sostituire con analisi della funzione ricorsiva search_graph
+	if(strpos($er->getMessage(),"SQLSTATE[57014]")!==false)
+		die("SQLSTATE - La porzione di rete individuata dalla selezione è troppo grossa per essere gestita dal Simula");
+	throw $er;
+
+}
 $elements = array();
 foreach($ELEMENTS as $key=>$value)
 	$elements[$key] = array();
