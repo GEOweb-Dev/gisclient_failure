@@ -151,8 +151,8 @@ DROP TABLE if exists grafo.nodi_acqua cascade;
 CREATE TABLE grafo.nodi_acqua AS
 SELECT 
 	nextval('grafo.nodi_nodo_id_seq_acqua'::regclass)::integer as id_nodo,
-	array_accum(arco_entrante) AS arco_entrante,
-	array_accum(arco_uscente) AS arco_uscente,
+	array_remove(array_accum(arco_entrante), NULL) AS arco_entrante,
+	array_remove(array_accum(arco_uscente), NULL) AS arco_uscente,
 	the_geom
 FROM (
   SELECT 

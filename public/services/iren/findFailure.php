@@ -1,13 +1,10 @@
 <?php
+require_once "failureFunction.php";
 require_once "find".$_REQUEST["domain"]."Failure.config.php";
 require_once "../../../config/config.php";
-//error_log(json_encode($ELEMENTS));
-//20210218 MZ -> si passa da 'altro' a 'altro','valvola sfiato', 'valvola drenaggio'
 $otherListStr = "('".implode("','", $OTHERS)."')";//"('altro', 'valvola sfiato', 'valvola drenaggio')";
-//fine MZ
 
 $dbSchema=DB_SCHEMA;
-// Setto qui i parametri di trasformazione... troppo casino ricavarli dal progetto corrente
 $SRS = array(
 	'3003'=>'+proj=tmerc +lat_0=0 +lon_0=9 +k=0.999600 +x_0=1500000 +y_0=0 +ellps=intl +units=m +no_defs +towgs84=-104.1,-49.1,-9.9,0.971,-2.917,0.714,-11.68',
 	'900913'=>'+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +towgs84=0,0,0 +no_defs',
@@ -115,41 +112,37 @@ if($flag == 1) {
 
 if(!$selectedPipe)
 	die();
-if($flag != 2)
-	$sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo, the_geom, depth, path, stop) AS ("
+$elements = array();
+if($flag != 2){
+	/*$sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo, the_geom, depth, path, stop) AS ("
 		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, 1, ARRAY[g.id_arco], false "
 		."FROM grafo.archi_".$_REQUEST['domain']." g where g.id_arco = $selectedPipe UNION ALL "
 		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
 		."FROM grafo.archi_".$_REQUEST['domain']." g, search_graph sg "
 		."WHERE (sg.a_nodo = g.da_nodo OR sg.a_nodo = g.a_nodo OR sg.da_nodo = g.da_nodo OR sg.da_nodo = g.a_nodo) AND g.id_arco<>sg.id_arco AND NOT stop) "
-		."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo FROM search_graph WHERE NOT stop LIMIT 1000";
-		//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
-//ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
-error_log($sql);
-$stmt = $db->prepare($sql);
-try{
+		."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo FROM search_graph WHERE NOT stop LIMIT 1000";*/	
+	foreach($ELEMENTS as $key=>$value)
+		$elements[$key] = array();
+	costruisciGrafoRicorsivo($db, $selectedPipe, $_REQUEST['domain'], $TIPO_FIELD, $OTHERS, $elements, $bVertex, $_REQUEST['exclude']);
+} else {
+	//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
+	//ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
+	error_log($sql);
+	$stmt = $db->prepare($sql);
 	$stmt->execute();
-}catch(PDOException $er){
-	//20211203 MZ -> tapullo mega-galattico da sostituire con analisi della funzione ricorsiva search_graph
-	if(strpos($er->getMessage(),"SQLSTATE[57014]")!==false)
-		die("SQLSTATE - La porzione di rete individuata dalla selezione è troppo grossa per essere gestita dal Simula");
-	throw $er;
-
+	foreach($ELEMENTS as $key=>$value)
+		$elements[$key] = array();
+	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		$elements["condotta"][] = array($row["tipo"],$row["id_elemento"]);//20210311 MZ -> id_elemento non id_arco, corrispondente al fid
+		if($row["da_tipo"]!="altro" || in_array($row["da_nodo"], $bVertex))
+			$elements[$row["da_tipo"]][] = $row["da_nodo"]; 
+		if($row["a_tipo"]!="altro" || in_array($row["a_nodo"], $bVertex))
+			$elements[$row["a_tipo"]][] = $row["a_nodo"];
+	}
+	print_debug($sql,null,'condotta');
 }
-$elements = array();
-foreach($ELEMENTS as $key=>$value)
-	$elements[$key] = array();
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-	$elements["condotta"][] = array($row["tipo"],$row["id_elemento"]);//20210311 MZ -> id_elemento non id_arco, corrispondente al fid
-	if($row["da_tipo"]!="altro" || in_array($row["da_nodo"], $bVertex))
-		$elements[$row["da_tipo"]][] = $row["da_nodo"]; 
-	if($row["a_tipo"]!="altro" || in_array($row["a_nodo"], $bVertex))
-		$elements[$row["a_tipo"]][] = $row["a_nodo"];
-}
-print_debug($sql,null,'condotta');
 print_debug($elements,null,'condotta');
 
-//$geom = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? $GEOM_FIELD :  ($transform."($GEOM_FIELD,'".$SRS[$GEOM_SRID]."','".$SRS[$srid]."',".$srid.")");
 $geom = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? $GEOM_FIELD : "st_transform($GEOM_FIELD,$srid)";
 //-- INIZIO 20211005 MZ
 $indexCondottaArr = array_unique(array_map(function(array $single){

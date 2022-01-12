@@ -1,4 +1,4 @@
-﻿DO $$
+DO $$
 DECLARE
     arco_fid integer := 0;
     arco_tipo integer :=0;
@@ -81,7 +81,7 @@ AND fid NOT IN (
    WHERE l.id_tipo_verso in (1,3) and id_stato = 3
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
-   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   AND ST_DWithin(l.geom,x.the_geom,0.03)
 )) union all (
 -- 20211005 MZ -> introduzione caso di tratte potenziali che intersecano tratte
 SELECT 
@@ -121,7 +121,7 @@ AND fid NOT IN (
    WHERE l.id_stato = 3
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    and NOT st_equals(x.the_geom,ST_EndPoint(l.geom))
-   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   AND ST_DWithin(l.geom,x.the_geom,0.03)
 ));
 
 OPEN crs_split FOR 
@@ -159,7 +159,7 @@ OPEN crs_split FOR
    WHERE l.id_tipo_verso IN (1,3) 
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
-   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.fid) union all (
    SELECT DISTINCT l.fid,l.geom as the_geom,x.the_geom as the_geom_node, 2 as tipo 
    FROM teleriscaldamento.fcl_h_ww_section_ptz l, 
@@ -186,7 +186,7 @@ OPEN crs_split FOR
    WHERE l.id_stato=3 
    AND NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
-   AND ST_DWithin(l.geom,x.the_geom,0.01)
+   AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.fid
    );
 LOOP
@@ -219,7 +219,7 @@ LOOP
    geometry_tmp_coll := NULL;
    LOOP
       geometry_tmp := ST_GeometryN(geometry_arc,num_splits);
-      geometry_tmp := ST_Split(ST_Snap(geometry_tmp,rcd.the_geom_node,0.01), rcd.the_geom_node);
+      geometry_tmp := ST_Split(ST_Snap(geometry_tmp,rcd.the_geom_node,0.03), rcd.the_geom_node);
       geometry_tmp_coll = ST_CollectionHomogenize(ST_Collect(geometry_tmp_coll, geometry_tmp));
       num_splits := num_splits+1;
       IF num_splits > ST_NumGeometries(geometry_arc) THEN
@@ -240,8 +240,8 @@ DROP TABLE if exists grafo.nodi_TLR cascade;
 CREATE TABLE grafo.nodi_TLR AS
 SELECT 
 	nextval('grafo.nodi_nodo_id_seq_TLR'::regclass)::integer as id_nodo,
-	array_accum(arco_entrante) AS arco_entrante,
-	array_accum(arco_uscente) AS arco_uscente,
+	array_remove(array_accum(arco_entrante),NULL) AS arco_entrante,
+	array_remove(array_accum(arco_uscente),NULL) AS arco_uscente,
 	the_geom
 FROM (
   SELECT 
