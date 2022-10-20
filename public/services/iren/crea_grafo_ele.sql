@@ -56,7 +56,7 @@ where id_stato = 3 AND fid NOT IN (
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3
-	   UNION ALL
+	   /*UNION ALL
        -- 20221005 MZ -> introduzione caso di tratte bt che intersecano tratte mt
        select ST_StartPoint(geom) as the_geom
        from elettricita.fcl_e_mt_section 
@@ -73,16 +73,7 @@ where id_stato = 3 AND fid NOT IN (
        union all
        select ST_EndPoint(geom) as the_geom
        from elettricita.fcl_e_at_section 
-       where id_stato=3
-	   -- 20221007 MZ -> introduzione caso di linee bt e linee mt e linee at
-	   --union all
-	   --select ST_StartPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
-       --union all
-       --select ST_EndPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
+       where id_stato=3*/
       ) AS foo GROUP BY the_geom
    ) AS x
    WHERE id_stato = 3
@@ -106,7 +97,7 @@ where id_stato = 3 AND fid NOT IN (
    FROM elettricita.fcl_e_mt_section l, 
    (SELECT * from 
       ( -- Punti iniziali tratta
-       SELECT ST_StartPoint(geom) AS the_geom 
+       /*SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3 
        UNION ALL 
@@ -114,7 +105,7 @@ where id_stato = 3 AND fid NOT IN (
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3
-	   UNION ALL
+	   UNION ALL*/
        -- 20221005 MZ -> introduzione caso di tratte bt che intersecano tratte mt
        select ST_StartPoint(geom) as the_geom
        from elettricita.fcl_e_mt_section 
@@ -123,7 +114,7 @@ where id_stato = 3 AND fid NOT IN (
        select ST_EndPoint(geom) as the_geom
        from elettricita.fcl_e_mt_section 
        where id_stato=3
-	   union all
+	   /*union all
 	   -- 20221005 MZ -> introduzione caso di tratte bt che intersecano tratte mt
        select ST_StartPoint(geom) as the_geom
        from elettricita.fcl_e_at_section 
@@ -131,16 +122,7 @@ where id_stato = 3 AND fid NOT IN (
        union all
        select ST_EndPoint(geom) as the_geom
        from elettricita.fcl_e_at_section 
-       where id_stato=3
-	   -- 20221007 MZ -> introduzione caso di linee bt e linee mt e linee at
-	   --union all
-	   --select ST_StartPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
-       --union all
-       --select ST_EndPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
+       where id_stato=3*/
       ) AS foo GROUP BY the_geom
    ) AS x
    WHERE id_stato = 3
@@ -164,7 +146,7 @@ where id_stato = 3 AND fid NOT IN (
    FROM elettricita.fcl_e_at_section l, 
    (SELECT * from 
       ( -- Punti iniziali tratta
-       SELECT ST_StartPoint(geom) AS the_geom 
+       /*SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3 
        UNION ALL 
@@ -182,7 +164,7 @@ where id_stato = 3 AND fid NOT IN (
        from elettricita.fcl_e_mt_section 
        where id_stato=3
 	   -- 20221005 MZ -> introduzione caso di tratte bt che intersecano tratte mt
-       union all
+       union all*/
 	   select ST_StartPoint(geom) as the_geom
        from elettricita.fcl_e_at_section 
        where id_stato=3
@@ -190,15 +172,6 @@ where id_stato = 3 AND fid NOT IN (
        select ST_EndPoint(geom) as the_geom
        from elettricita.fcl_e_at_section 
        where id_stato=3
-	   -- 20221007 MZ -> introduzione caso di linee bt e linee mt e linee at
-	   --union all
-	   --select ST_StartPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
-       --union all
-       --select ST_EndPoint(geom) as the_geom
-       --from elettricita.fcl_e_plant_schemasection
-       --where id_stato=3 and gtype_id in (100,200,300)
       ) AS foo GROUP BY the_geom
    ) AS x
    WHERE id_stato = 3
@@ -440,7 +413,7 @@ OPEN crs_split FOR
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3
-	   UNION ALL
+	   /*UNION ALL
 	   SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_mt_section 
        WHERE id_stato = 3 
@@ -455,7 +428,7 @@ OPEN crs_split FOR
        UNION ALL 
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_at_section 
-       WHERE id_stato = 3
+       WHERE id_stato = 3*/
       ) AS foo GROUP BY the_geom
    ) AS x 
    WHERE l.id_Stato=3 and NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
@@ -465,14 +438,14 @@ OPEN crs_split FOR
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 2 as tipo
    FROM elettricita.fcl_e_mt_section l, 
    (SELECT * FROM 
-      (SELECT ST_StartPoint(geom) AS the_geom 
+      (/*SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3 
        UNION ALL 
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3
-	   UNION ALL
+	   UNION ALL*/
 	   SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_mt_section 
        WHERE id_stato = 3 
@@ -480,14 +453,14 @@ OPEN crs_split FOR
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_mt_section 
        WHERE id_stato = 3
-	   union all
+	   /*union all
 	   SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_at_section 
        WHERE id_stato = 3 
        UNION ALL 
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_at_section 
-       WHERE id_stato = 3
+       WHERE id_stato = 3*/
       ) AS foo GROUP BY the_geom
    ) AS x 
    WHERE l.id_stato=3 and NOT st_equals(x.the_geom,ST_StartPoint(l.geom)) 
@@ -497,7 +470,7 @@ OPEN crs_split FOR
       SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 3 as tipo
    FROM elettricita.fcl_e_at_section l, 
    (SELECT * FROM 
-      (SELECT ST_StartPoint(geom) AS the_geom 
+      (/*SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_bt_section 
        WHERE id_stato = 3 
        UNION ALL 
@@ -512,7 +485,7 @@ OPEN crs_split FOR
        SELECT ST_EndPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_mt_section 
        WHERE id_stato = 3
-	   union all
+	   union all*/
 	   SELECT ST_StartPoint(geom) AS the_geom 
        FROM elettricita.fcl_e_at_section 
        WHERE id_stato = 3 
@@ -748,7 +721,6 @@ FROM (
     ST_EndPoint(the_geom) AS the_geom, 
     NULL::integer AS arco_uscente,
     id_arco AS arco_entrante -- fid anzichè gs_id
-  --FROM acqua.ratraccia_g 
   FROM grafo.archi_ele
 ) AS foo
 GROUP BY the_geom;
