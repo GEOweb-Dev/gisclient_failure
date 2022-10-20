@@ -1,4 +1,4 @@
-﻿DO $$
+DO $$
 DECLARE
     arco_fid integer := 0;
     node_id_check integer := 0;
@@ -53,16 +53,11 @@ AND fid NOT IN (
        SELECT ST_EndPoint(geom) AS the_geom 
 	FROM gas.fcl_g_dn_section
 	WHERE id_stato=3 and id_gestore in (15,999) and id_tipo_gas in (1,2,999) and id_tiporete in (1,2,999)
-       /*UNION ALL 
-        -- Valvole sfiato
-       SELECT geom AS the_geom 
-       FROM teleriscaldamento.fcl_h_isolation_device
-       WHERE id_tipologia=4 and id_stato=3
-       UNION ALL 
-        -- Valvole drenaggio
-       SELECT geom AS the_geom 
-       FROM teleriscaldamento.fcl_h_isolation_device
-       WHERE id_tipologia=5 and id_stato=3*/
+	UNION ALL
+	-- Raccordi e riduttori
+	SELECT geom as the_geom
+	from gas.fcl_g_component
+	where gtype_id in (10,20) and id_stato=3 and id_gestore in (15,999) and id_tipo_gas in (1,2,999) and id_tiporete in (1,2,999)
       ) AS foo GROUP BY the_geom
    ) AS x
    WHERE l.id_stato=3 and l.id_gestore in (15,999) and l.id_tipo_gas in (1,2,999) and l.id_tiporete in (1,2,999)
@@ -84,16 +79,11 @@ OPEN crs_split FOR
        SELECT ST_EndPoint(geom) AS the_geom
        FROM gas.fcl_g_dn_section  
        WHERE id_stato=3 and id_gestore in (15,999) and id_tipo_gas in (1,2,999) and id_tiporete in (1,2,999)
-       /*UNION ALL 
-        -- Valvole sfiato
-       SELECT geom AS the_geom 
-       FROM teleriscaldamento.fcl_h_isolation_device
-       WHERE id_tipologia=4 and id_stato=3
-       UNION ALL 
-        -- Valvole drenaggio
-       SELECT geom AS the_geom 
-       FROM teleriscaldamento.fcl_h_isolation_device
-       WHERE id_tipologia=5 and id_stato=3*/
+       UNION ALL
+       -- Raccordi e riduttori
+	SELECT geom as the_geom
+	from gas.fcl_g_component
+	where gtype_id in (10,20) and id_stato=3 and id_gestore in (15,999) and id_tipo_gas in (1,2,999) and id_tiporete in (1,2,999)
       ) AS foo GROUP BY the_geom
    ) AS x 
    WHERE l.id_stato=3 and l.id_gestore in (15,999) and l.id_tipo_gas in (1,2,999) and l.id_tiporete in (1,2,999)
@@ -101,6 +91,7 @@ OPEN crs_split FOR
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.01)
    ORDER BY l.fid;
+
 LOOP
    FETCH crs_split INTO rcd;
    IF (arco_fid <> rcd.fid AND arco_fid <> 0) OR NOT FOUND THEN
@@ -229,14 +220,31 @@ update grafo.nodi_Gas set tipo_nodo='valvola', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_isolation_device e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.id_stato=3 and e.id_gestore in (15,999) and e.id_tipo_gas in (1,2,999) and e.id_tiporete in (1,2,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
 
---
--- TERMINALI
+--punti misura (terminali)
+--update grafo.nodi_Gas set tipo_nodo='punti misura', id_elemento = fid from
+--(select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_punti_misura e where
+--ST_DWithin(n.the_geom,e.geom,0.01) e.id_stato=3 and e.id_gestore in (15,999) and e.id_tipo_gas in (1,2,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+
+--raccordi (quadrati)
+update grafo.nodi_Gas set tipo_nodo='raccordo', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and gtype_id=10 and e.id_stato=3 and e.id_gestore in (15,999) 
+ and e.id_tipo_gas in (1,2,999) and e.id_tiporete in (1,2,999) 
+ and e.id_tipologia not in (3,7,8,9,10,11,12,18,22,27,28,33,39,40,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+
+--montanti
+update grafo.nodi_Gas set tipo_nodo='montante', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_component e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=40 and e.id_stato=3 and e.id_gestore in (15,999) and e.id_tipo_gas in (1,2,999) and e.id_tiporete in (1,2,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+
+-- UTENZA
 update grafo.nodi_Gas set tipo_nodo='utenza', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_service e where
-ST_DWithin(n.the_geom,e.geom,0.01)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_Stato=3 and e.id_Gestore in (15,999) and e.id_Tipo_gas in (1,2,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+-- RIDUTTORI UTENZA
 update grafo.nodi_Gas set tipo_nodo='riduttore utenza', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_Gas n, gas.fcl_g_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20) as foo where nodi_Gas.id_nodo=foo.id_nodo;
+ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_Stato=3 and e.id_Gestore in (15,999) and e.id_Tipo_gas in (1,2,999) and e.id_Tiporete in (1,2,999)) as foo where nodi_Gas.id_nodo=foo.id_nodo;
 
 -- CABINA EROGAZIONE
 update grafo.nodi_Gas set tipo_nodo='cabina erogazione', id_elemento = fid from
@@ -254,48 +262,4 @@ CREATE INDEX archi_Gas_da_nodo_idx ON grafo.archi_Gas (da_nodo);
 CREATE INDEX archi_Gas_a_nodo_idx ON grafo.archi_Gas (a_nodo);
 CREATE INDEX archi_Gas_the_geom_gist ON grafo.archi_Gas USING gist (the_geom);
 
-
--- 20201002 MZ - rimossa temporaneamente parte del TEST, da concordare eventualmente con Zio
--- TEST 
-
---drop table if exists grafo.ricerca;
---CREATE TABLE grafo.ricerca
---(
---  id serial,
---  a_nodo integer,
---  a_tipo character varying,
---  gs_id integer,
---  the_geom geometry
---);
-
--- SELEZIONE DALLA TRATTA CON ESCLUSIONE DI ELEMENTI
---insert into grafo.ricerca
---WITH RECURSIVE search_graph(da_nodo, a_nodo, a_tipo, gs_id, the_geom, depth, path, cycle) AS (
---        SELECT g.da_nodo, g.a_nodo, g.a_tipo, g.id_arco, g.the_geom, 1,
---          ARRAY[g.id_arco],
---          false
---        FROM grafo.archi g where g.id_arco=30421
---      UNION ALL
---        SELECT g.da_nodo, g.a_nodo, g.a_tipo, g.id_arco, g.the_geom, sg.depth + 1,
---          path || g.id_arco,
---          g.id_arco = ANY(path)
---        FROM grafo.archi g, search_graph sg
---        WHERE g.da_nodo = sg.a_nodo AND (g.da_tipo='altro' or g.da_nodo in(9137,9306)) AND NOT cycle
---)
---SELECT  da_nodo, a_nodo, a_tipo, gs_id, the_geom FROM search_graph  limit 10000;
-
--- SELEZIONE DALLA TRATTA CON ESCLUSIONE DI ELEMENTI
---WITH RECURSIVE search_graph(da_nodo, a_nodo, da_tipo, a_tipo, gs_id, the_geom, depth, path, cycle) AS (
---        SELECT g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.id_arco, g.the_geom, 1,
---          ARRAY[g.id_arco],
---          false
---        FROM grafo.archi g where g.id_arco=6755
---      UNION ALL
---        SELECT g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, g.id_arco, g.the_geom, sg.depth + 1,
---          path || g.id_arco,
---          g.id_arco = ANY(path) OR (g.da_tipo='altro')
---        FROM grafo.archi g, search_graph sg
---        WHERE g.da_nodo = sg.a_nodo AND (g.da_tipo='altro') AND NOT cycle
---)
---SELECT  da_nodo, a_nodo, da_tipo, a_tipo, gs_id, the_geom FROM search_graph  limit 10000;
 END$$;

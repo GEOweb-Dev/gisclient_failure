@@ -1,0 +1,7 @@
+.svn/
+public/services/iren/findAcquaFailure.config.php
+public/services/iren/findEleBtFailure.config.php
+public/services/iren/findEleFailure.config.php
+public/services/iren/findGasFailure.config.php
+public/services/iren/findTLRFailure.config.php
+public/services/iren/crea_grafo_ele_bt.sql

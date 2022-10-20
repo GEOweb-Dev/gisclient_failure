@@ -21,10 +21,10 @@ $stmt = $db->prepare("SET statement_timeout TO $TIME_OUT;");
 $stmt->execute();
 
 $popoint = null;
-
+$geom = "the_geom";
 if($_REQUEST["srs"] == "EPSG:".$GEOM_SRID){
 	$point ="'SRID=".$GEOM_SRID.";POINT($x $y)'";
-	$geom = "the_geom";
+	//$geom = "the_geom";
 	if(!empty($_REQUEST["barN"])){
 		$a = explode(",",$_REQUEST['barN']);
 		$popoint = "'SRID".$GEOM_SRID.";POINT(".trim($a[0])." ".trim($a[1]).")'";
@@ -36,7 +36,7 @@ if($_REQUEST["srs"] == "EPSG:".$GEOM_SRID){
 	$stmt = $db->prepare("select st_astext(st_transform(st_geomfromtext('POINT($x $y)',$srid),$GEOM_SRID))");
 	$stmt->execute();
 	$point = "st_geomfromtext('".$stmt->fetch(PDO::FETCH_NUM)[0]."',$GEOM_SRID)";
-	$geom = "the_geom";
+	//$geom = "the_geom";
 	//fine 20211007 MZ
 	if(!empty($_REQUEST["barN"])) { 
 		$a = explode(",",$_REQUEST['barN']);
@@ -50,12 +50,20 @@ if($_REQUEST["srs"] == "EPSG:".$GEOM_SRID){
 
 $includeVertex = $_REQUEST["include"];
 if($popoint!=null) {
-	$sql = "select id_nodo from grafo.nodi_".$_REQUEST['domain']." where ST_DISTANCE($popoint, $geom) <".floatVal($_REQUEST["distance"])
+	$sql = "select id_nodo from grafo.nodi_".$_REQUEST['domain']." where ST_DISTANCE($popoint, $geom) <".floatVal($_REQUEST["distance"])." and tipo_nodo='altro' "
 		." ORDER BY ST_DISTANCE($popoint,$geom) LIMIT 1;";
+	error_log($sql);
 	$stmt = $db->prepare($sql);
 	$stmt->execute();
-	while($row = $stmt->fetch(PDO::FETCH_ASSOC))
-		$includeVertex .= (empty($includeVertex) ? "" : ",").$row['id_nodo'];  
+	$ex = false;
+	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		$includeVertex .= (empty($includeVertex) ? "" : ",").$row['id_nodo'];
+		$ex = true;
+	}
+	if(!$ex){
+		header("Content-Type: application/json");
+		die(json_encode(array("error"=>"Non è possibile posizionare una barriera su un nodo tipato del grafo.")));
+	}
 }
 $includeVertex = empty($includeVertex) ? false : $includeVertex;
 $bVertex = $includeVertex ? explode(",",$includeVertex) : array();
@@ -66,7 +74,9 @@ $aVertex=array();
 //20211006 MZ
 //Elementi da escludere:
 $excludeVertex = (!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)) ? ("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
-	.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".$_REQUEST["exclude"].") " : "")
+	.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".implode(",", array_map(function($a){
+		return is_numeric($a) ? $a : "'".$a."'";
+	},explode(",",$_REQUEST["exclude"]))).") " : "")
 	.(!empty($EXCLUDED_ELEMENTS) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : "")) : false;
 //fine 20211006
 //CON INCLUDI I NODI INVECE...
@@ -76,9 +86,11 @@ $joinFilter = "((sg.da_tipo not in $otherListStr ".($excludeVertex ? " AND sg.da
 //TROVO LA CONDOTTA SELEZIONATA COME ARCO DEL GRAFO - QUI!!
 //CON INCLUDI I NODI INVECE...
 $ff = "((da_tipo not in $otherListStr ".($excludeVertex ? " AND da_nodo NOT IN ($excludeVertex)" : "").") OR (a_tipo not in $otherListStr ".($excludeVertex ? " AND a_nodo NOT IN ($excludeVertex)" : "")."))".($includeVertex ? " OR (da_tipo in $otherListStr and da_nodo in ($includeVertex)) OR (a_tipo in $otherListStr and a_nodo in ($includeVertex))" : "");
-$stmt = $db->prepare("SELECT id_arco, case when ($ff) then 1 else 0 end as flag FROM grafo.archi_".$_REQUEST['domain']." as sg "
+$sql = ("SELECT id_arco, case when ($ff) then 1 else 0 end as flag FROM grafo.archi_".$_REQUEST['domain']." as sg "
 	."WHERE ST_DISTANCE($point,$geom) < ".floatval($_REQUEST["distance"])
 	." ORDER BY ST_DISTANCE($point,$geom) LIMIT 1;");
+error_log($sql);
+$stmt = $db->prepare($sql);
 $stmt->execute();
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 $selectedPipe = $row["id_arco"];
@@ -100,8 +112,8 @@ if($flag == 1) {
 	$selectedNextPipe = $row["id_arco"];
 	//CASO DI 2 ARCHI CON NODI TERMINALI UNITI DA NODO NON TERMINALE (?????)  VALVOLA - ALTRO - VALVOLA
 	if(!$selectedNextPipe) {
-		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, $TIPO_FIELD FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
-			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD : "g.".$TIPO_FIELD)." FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
+		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, $TIPO_FIELD as tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
+			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD : "g.".$TIPO_FIELD)." as tipo FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
 			."WHERE sg.id_arco = $selectedPipe AND g.id_arco <> sg.id_arco";
 		//CON INCLUDI I NODI INVECE
 		$sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo in $otherListStr ".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo in $otherListStr".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
@@ -113,7 +125,8 @@ if($flag == 1) {
 if(!$selectedPipe)
 	die();
 $elements = array();
-if($flag != 2){
+error_log("-->Flag: ".$flag);
+//if($flag != 2){
 	/*$sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo, the_geom, depth, path, stop) AS ("
 		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, 1, ARRAY[g.id_arco], false "
 		."FROM grafo.archi_".$_REQUEST['domain']." g where g.id_arco = $selectedPipe UNION ALL "
@@ -124,7 +137,7 @@ if($flag != 2){
 	foreach($ELEMENTS as $key=>$value)
 		$elements[$key] = array();
 	costruisciGrafoRicorsivo($db, $selectedPipe, $_REQUEST['domain'], $TIPO_FIELD, $OTHERS, $elements, $bVertex, $_REQUEST['exclude']);
-} else {
+/*} else {
 	//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
 	//ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
 	error_log($sql);
@@ -140,7 +153,7 @@ if($flag != 2){
 			$elements[$row["a_tipo"]][] = $row["a_nodo"];
 	}
 	print_debug($sql,null,'condotta');
-}
+	}*/
 print_debug($elements,null,'condotta');
 
 $geom = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? $GEOM_FIELD : "st_transform($GEOM_FIELD,$srid)";
@@ -152,12 +165,14 @@ $row = array();
 foreach($indexCondottaArr as $singleIndexCondotta) {
 	$table = $ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["table"];
 	$condition = $ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["condition"];
-	$sql = "SELECT ST_XMin(ST_Extent($geom)),ST_YMin(ST_Extent($geom)),ST_XMax(ST_Extent($geom)),ST_YMax(ST_Extent($geom)) FROM $SCHEMA.$table "
-		."WHERE $condition and $FID_FIELD IN (".implode(",",array_map(function(array $single){
-			return $single[1];
+	$gg = ($_REQUEST["srs"] == "EPSG:the_geom") ? $GEOM_FIELD : "st_transform(the_geom,$srid)";
+	$sql = "select ST_XMin(ST_Extent($gg)), ST_YMin(ST_Extent($gg)),ST_XMax(ST_Extent($gg)),ST_YMax(ST_Extent($gg)) from grafo.archi_$SUFFIX "
+		."where id_arco IN (".implode(",", array_map(function(array $single){
+			return $single[2];
 		},array_filter($elements["condotta"],function(array $single) use($singleIndexCondotta){
 			return $single[0]==$singleIndexCondotta;
 		}))).");";
+	error_log($sql);
 	$stmt = $db->prepare($sql);
 	$stmt->execute();
 	$row[$singleIndexCondotta] = $stmt->fetch(PDO::FETCH_NUM);
@@ -166,7 +181,9 @@ for($i=0; $i<4; $i++)
 	$ELEMENTS["features_extent"][$i] = round($i<2 ? min(array_column($row,$i)): max(array_column($row, $i)),2);
 //-- FINE 20211005 MZ
 //AGGIUNGO LE ENTITA' TROVATE A ELEMENTS
-$excludeRequested = (empty($_REQUEST["exclude"])) ? "0 as escluso" : "case when $FID_FIELD in (".$_REQUEST["exclude"].") then 1 else 0 end as escluso";
+$excludeRequested = (empty($_REQUEST["exclude"])) ? "0 as escluso" : "case when $FID_FIELD in (".implode(",",array_map(function($a){
+return is_numeric($a) ? $a : "'".$a."'";
+},explode(",",$_REQUEST["exclude"]))).") then 1 else 0 end as escluso";
 
 //CONDOTTE:
 $features = array();
@@ -178,13 +195,15 @@ foreach($indexCondottaArr as $singleIndexCondotta) {
 	$condition = $ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["condition"];
 	foreach($ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["properties"] as $field)
 		$fields[] = $field["name"];
-	$sql = "SELECT $FID_FIELD, ST_AsText($geom) as geom,".implode(",", $fields)." FROM $SCHEMA.$table "
-		."WHERE $condition and $FID_FIELD IN (".implode(",",array_map(function(array $single){
-			return $single[1];
+	$gg = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? "b.the_geom" : "st_transform(b.the_geom,$srid)";
+	$sql = "SELECT $FID_FIELD, ST_AsText($gg) as geom,".implode(",", $fields)." FROM $SCHEMA.$table inner join grafo.archi_$SUFFIX b on $FID_FIELD=b.id_elemento "
+		."WHERE $condition and b.id_arco IN (".implode(",",array_map(function(array $single){
+			return $single[2];//is_numeric($single[1]) ? $single[1]  : ("'".$single[1]."'");
 		},array_filter($elements["condotta"],function(array $single) use($singleIndexCondotta){
 			return $single[0]==$singleIndexCondotta;
 		}))).");";
 	print_debug($sql, null, 'condotta');
+	error_log($sql);
 	$stmt = $db->prepare($sql);
 	$stmt->execute();
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
@@ -206,7 +225,6 @@ foreach($indexCondottaArr as $singleIndexCondotta) {
 
 $ELEMENTS["condotta"]["features"] = array("type"=>"FeatureCollection","features"=>$features);
 unset($elements["condotta"]);
-error_log(json_encode($elements));
 foreach($elements as $key => $idList){
 	error_log($key."----".json_encode($idList));
 	$features = array();
@@ -218,13 +236,16 @@ foreach($elements as $key => $idList){
 			$exclusion = $ELEMENTS[$key]["featureType"]["exclusion"];
 			$join = isset($ELEMENTS[$key]["featureType"]["join"]) ? $ELEMENTS[$key]["featureType"]["join"] : "";
 			$groupBy = isset($ELEMENTS[$key]["featureType"]["groupby"]); 
+			$working = isset($ELEMENTS[$key]["featureType"]["working"]) ? $ELEMENTS[$key]["featureType"]["working"] : "";
 			$ELEMENTS[$key]["featureType"]["typeName"] = $key;
 			unset ($ELEMENTS[$key]["featureType"]["table"]);
 			foreach($ELEMENTS[$key]["featureType"]["properties"] as $field)
 				$fields[]=$field["name"];
 			$sql = "SELECT ".(empty($join) ? "" : "a.")."$FID_FIELD,ST_AsText($geom) as geom, "
 				.(empty($exclusion) ? str_replace(" fid ", empty($join) ? " fid " : " a.fid ",$excludeRequested) : $exclusion)
-				.(!empty($fields) ? "," : "").implode(",",$fields)." FROM $SCHEMA.$table $join WHERE $condition "
+				.(!empty($fields) ? "," : "").implode(",",$fields)." "
+				.(empty($working) ? "" : ",".$working." as working ")
+				."FROM $SCHEMA.$table $join WHERE $condition "
 				.(!empty($condition) ? "and " : " ").(empty($join) ? "" : "a.")."$FID_FIELD IN (SELECT id_elemento FROM grafo.nodi_".$_REQUEST['domain']." WHERE id_nodo IN(".implode(",",$idList).")) "
 				.($groupBy ? "group by a.$FID_FIELD, geom, ".implode(",",array_slice($fields,0,count($fields)-1)) : "").";";
 			error_log($sql);
@@ -245,7 +266,7 @@ foreach($elements as $key => $idList){
 				//error_log(json_encode($properties));
 				list($x,$y) = explode(" ",str_replace(")","",str_replace("POINT(","",$row["geom"])));
 				$g = array(round($x,2),round($y,2));
-				$features[] = array("type"=>"Feature","id"=>$key.".".$row[$FID_FIELD],"properties"=>$properties,"geometry"=>array("type"=>"Point","coordinates"=>$g));	
+				$features[] = array("type"=>"Feature","id"=>$key.".".$row[$FID_FIELD].(isset($row['working']) ? ".".($row['working'] ? "true" : "false") :""),"properties"=>$properties,"geometry"=>array("type"=>"Point","coordinates"=>$g));	
 			}
 		} else {
 			//$auxG = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? "the_geom" :  ($transform."(the_geom,'".$SRS[$GEOM_SRID]."','".$SRS[$srid]."',".$srid.")");
