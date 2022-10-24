@@ -109,7 +109,7 @@ if($flag == 1) {
 	$stmt = $db->prepare($sql);
 	$stmt->execute();
 	$row = $stmt->fetch(PDO::FETCH_ASSOC);
-	$selectedNextPipe = $row["id_arco"];
+	$selectedNextPipe = !$row ? false : $row["id_arco"];
 	//CASO DI 2 ARCHI CON NODI TERMINALI UNITI DA NODO NON TERMINALE (?????)  VALVOLA - ALTRO - VALVOLA
 	if(!$selectedNextPipe) {
 		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, $TIPO_FIELD as tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
