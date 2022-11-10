@@ -50,7 +50,7 @@ if($_REQUEST["srs"] == "EPSG:".$GEOM_SRID){
 
 $includeVertex = $_REQUEST["include"];
 if($popoint!=null) {
-	$sql = "select id_nodo from grafo.nodi_".$_REQUEST['domain']." where ST_DISTANCE($popoint, $geom) <".floatVal($_REQUEST["distance"])." and tipo_nodo='altro' "
+	$sql = "select id_nodo from grafo.nodi_".$_REQUEST['domain']." where ST_DISTANCE($popoint, $geom) <".floatVal($_REQUEST["distance"])//." and tipo_nodo='altro' "
 		." ORDER BY ST_DISTANCE($popoint,$geom) LIMIT 1;";
 	error_log($sql);
 	$stmt = $db->prepare($sql);
@@ -69,24 +69,21 @@ $includeVertex = empty($includeVertex) ? false : $includeVertex;
 $bVertex = $includeVertex ? explode(",",$includeVertex) : array();
 
 //ANALISI DEL GRAFO
-$excludeVertex = false;
+//$excludeVertex = false;
 $aVertex=array();
 //20211006 MZ
 //Elementi da escludere:
-$excludeVertex = (!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)) ? ("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
-	.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".implode(",", array_map(function($a){
-		return is_numeric($a) ? $a : "'".$a."'";
-	},explode(",",$_REQUEST["exclude"]))).") " : "")
-	.(!empty($EXCLUDED_ELEMENTS) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : "")) : false;
+//$excludeVertex = (!empty($_REQUEST["exclude"]) || !empty($EXCLUDED_ELEMENTS)) ? ("SELECT id_nodo from grafo.nodi_".$_REQUEST['domain']
+//	.(!empty($_REQUEST["exclude"]) ? " where id_elemento in (".implode(",", array_map(function($a){
+//		return is_numeric($a) ? $a : "'".$a."'";
+//	},explode(",",$_REQUEST["exclude"]))).") " : "")
+//	.(!empty($EXCLUDED_ELEMENTS) ? ((!empty($_REQUEST["exclude"]) ? "or": " where")." tipo_nodo in ('".implode("','", $EXCLUDED_ELEMENTS)."')") : "")) : false;
 //fine 20211006
-//CON INCLUDI I NODI INVECE...
-$joinFilter = "((sg.da_tipo not in $otherListStr ".($excludeVertex ? " AND sg.da_nodo not in ($excludeVertex)" : "").") OR (sg.a_tipo not in $otherListStr ".($excludeVertex ? " AND sg.a_nodo not in ($excludeVertex)" : "")."))".($includeVertex ? " OR (sg.da_tipo in $otherListStr and sg.da_nodo in ($includeVertex)) OR (sg.a_tipo in $otherListStr and sg.a_nodo in ($includeVertex))" : "");
 
 
 //TROVO LA CONDOTTA SELEZIONATA COME ARCO DEL GRAFO - QUI!!
 //CON INCLUDI I NODI INVECE...
-$ff = "((da_tipo not in $otherListStr ".($excludeVertex ? " AND da_nodo NOT IN ($excludeVertex)" : "").") OR (a_tipo not in $otherListStr ".($excludeVertex ? " AND a_nodo NOT IN ($excludeVertex)" : "")."))".($includeVertex ? " OR (da_tipo in $otherListStr and da_nodo in ($includeVertex)) OR (a_tipo in $otherListStr and a_nodo in ($includeVertex))" : "");
-$sql = ("SELECT id_arco, case when ($ff) then 1 else 0 end as flag FROM grafo.archi_".$_REQUEST['domain']." as sg "
+$sql = ("SELECT id_arco FROM grafo.archi_".$_REQUEST['domain']." as sg "
 	."WHERE ST_DISTANCE($point,$geom) < ".floatval($_REQUEST["distance"])
 	." ORDER BY ST_DISTANCE($point,$geom) LIMIT 1;");
 error_log($sql);
@@ -94,66 +91,12 @@ $stmt = $db->prepare($sql);
 $stmt->execute();
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 $selectedPipe = $row["id_arco"];
-$flag = $row["flag"];
-if(!$selectedPipe)
-	die();
-
-//PATCH PERCHE' NON ATTIVA LA RICORSIONE SE INZIA DA UN ARCO TERMINALE: TROVO IL PRIMO ARCO NON TERMINALE SE QUELLO SELEZIONATO NON LO E'
-if($flag == 1) {
-	$sql = "SELECT sg.id_arco FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg WHERE g.id_arco = $selectedPipe AND g.id_arco <> sg.id_arco "
-		."AND (sg.a_nodo = g.da_nodo OR sg.a_nodo = g.a_nodo OR sg.da_nodo = g.da_nodo OR sg.da_nodo = g.a_nodo)";
-	//CON INCLUDI I NODI INVECE...
-	$sql.= " AND (((sg.da_tipo in $otherListStr ".($includeVertex ? "and sg.da_nodo not in ($includeVertex)" : "").") "
-		.($excludeVertex ? "or sg.da_nodo in ($excludeVertex)": "").") AND ((sg.a_tipo in $otherListStr ".($includeVertex ? " and sg.a_nodo not in ($includeVertex)" : "").") "
-		.($excludeVertex ? "or sg.a_nodo in ($excludeVertex)" : "")."));";
-	$stmt = $db->prepare($sql);
-	$stmt->execute();
-	$row = $stmt->fetch(PDO::FETCH_ASSOC);
-	$selectedNextPipe = !$row ? false : $row["id_arco"];
-	//CASO DI 2 ARCHI CON NODI TERMINALI UNITI DA NODO NON TERMINALE (?????)  VALVOLA - ALTRO - VALVOLA
-	if(!$selectedNextPipe) {
-		$sql="SELECT id_arco,id_elemento,da_nodo,a_nodo, da_tipo, a_tipo, $TIPO_FIELD as tipo FROM grafo.archi_".$_REQUEST['domain']." WHERE id_arco = $selectedPipe UNION "
-			."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD : "g.".$TIPO_FIELD)." as tipo FROM grafo.archi_".$_REQUEST['domain']." g, grafo.archi_".$_REQUEST['domain']." sg "
-			."WHERE sg.id_arco = $selectedPipe AND g.id_arco <> sg.id_arco";
-		//CON INCLUDI I NODI INVECE
-		$sql.= " AND ((g.a_nodo=sg.da_nodo AND ((g.a_tipo in $otherListStr ".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.a_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")) OR (g.a_nodo=sg.a_nodo AND ((g.a_tipo in $otherListStr".($includeVertex ? " and g.a_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.a_nodo in ($excludeVertex)" : "").")) OR (g.da_nodo=sg.da_nodo AND ((g.da_tipo in $otherListStr ".($includeVertex ? " and g.da_nodo not in ($includeVertex)" : "").") ".($excludeVertex ? " or g.da_nodo in ($excludeVertex)" : "").")))";
-		$flag = 2;
-	} else
-		$selectedPipe = $selectedNextPipe;	
-}
-
 if(!$selectedPipe)
 	die();
 $elements = array();
-error_log("-->Flag: ".$flag);
-//if($flag != 2){
-	/*$sql = "WITH RECURSIVE search_graph(id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo, the_geom, depth, path, stop) AS ("
-		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, 1, ARRAY[g.id_arco], false "
-		."FROM grafo.archi_".$_REQUEST['domain']." g where g.id_arco = $selectedPipe UNION ALL "
-		."SELECT g.id_arco, g.id_elemento, g.da_nodo, g.a_nodo, g.da_tipo, g.a_tipo, ".($TIPO_FIELD==1 ? $TIPO_FIELD." as tipo" : "g.tipo").", g.the_geom, sg.depth + 1, path || g.id_arco, g.id_arco = ANY(path) OR ($joinFilter) "
-		."FROM grafo.archi_".$_REQUEST['domain']." g, search_graph sg "
-		."WHERE (sg.a_nodo = g.da_nodo OR sg.a_nodo = g.a_nodo OR sg.da_nodo = g.da_nodo OR sg.da_nodo = g.a_nodo) AND g.id_arco<>sg.id_arco AND NOT stop) "
-		."SELECT DISTINCT id_arco, id_elemento, da_nodo, a_nodo, da_tipo, a_tipo, tipo FROM search_graph WHERE NOT stop LIMIT 1000";*/	
-	foreach($ELEMENTS as $key=>$value)
-		$elements[$key] = array();
-	costruisciGrafoRicorsivo($db, $selectedPipe, $_REQUEST['domain'], $TIPO_FIELD, $OTHERS, $elements, $bVertex, $_REQUEST['exclude']);
-/*} else {
-	//20210311 MZ -> aggiunto id_elemento, corrispondente al fid
-	//ELENCO DEGLI OGGETTI TROVATI INDICIZZATI PER TIPO
-	error_log($sql);
-	$stmt = $db->prepare($sql);
-	$stmt->execute();
-	foreach($ELEMENTS as $key=>$value)
-		$elements[$key] = array();
-	while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-		$elements["condotta"][] = array($row["tipo"],$row["id_elemento"]);//20210311 MZ -> id_elemento non id_arco, corrispondente al fid
-		if($row["da_tipo"]!="altro" || in_array($row["da_nodo"], $bVertex))
-			$elements[$row["da_tipo"]][] = $row["da_nodo"]; 
-		if($row["a_tipo"]!="altro" || in_array($row["a_nodo"], $bVertex))
-			$elements[$row["a_tipo"]][] = $row["a_nodo"];
-	}
-	print_debug($sql,null,'condotta');
-	}*/
+foreach($ELEMENTS as $key=>$value)
+	$elements[$key] = array();
+costruisciGrafoRicorsivo($db, $selectedPipe, $_REQUEST['domain'], $TIPO_FIELD, $OTHERS, $elements, $bVertex, $_REQUEST['exclude'], filter_var($_REQUEST['custom'],FILTER_VALIDATE_BOOLEAN));
 print_debug($elements,null,'condotta');
 
 $geom = ($_REQUEST["srs"] == "EPSG:".$GEOM_SRID) ? $GEOM_FIELD : "st_transform($GEOM_FIELD,$srid)";
@@ -225,7 +168,7 @@ foreach($indexCondottaArr as $singleIndexCondotta) {
 
 $ELEMENTS["condotta"]["features"] = array("type"=>"FeatureCollection","features"=>$features);
 unset($elements["condotta"]);
-foreach($elements as $key => $idList){
+foreach($elements as $key => $idList) {
 	error_log($key."----".json_encode($idList));
 	$features = array();
 	if(!empty($idList)){

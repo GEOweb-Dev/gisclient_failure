@@ -395,5 +395,9 @@ $ELEMENTS = array(
   ))
 );
 
+function custom($db, $flag, $row) {
+	//TO BE IMPLEMENTED
+	return false;
+}
 
 ?>
