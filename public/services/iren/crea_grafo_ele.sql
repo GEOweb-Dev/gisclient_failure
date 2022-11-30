@@ -260,7 +260,7 @@ OPEN crs_split FOR
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
-   ) union all (
+   ) */union all (
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 7 as tipo
    FROM elettricita.fcl_e_plant_busbar l, 
    (SELECT * FROM 
@@ -278,7 +278,7 @@ OPEN crs_split FOR
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
    
-   ) union all (
+   ) /*union all (
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 5 as tipo
    FROM elettricita.fcl_e_plant_schemasection l, 
    (SELECT * FROM 
@@ -295,7 +295,7 @@ OPEN crs_split FOR
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
-   ) union all (
+   ) */union all (
    
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 8 as tipo
    FROM elettricita.fcl_e_plant_busbar l, 
@@ -314,7 +314,7 @@ OPEN crs_split FOR
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
    
-   ) union all (
+   ) /*union all (
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 6 as tipo
    FROM elettricita.fcl_e_plant_schemasection l, 
    (SELECT * FROM 
@@ -331,7 +331,7 @@ OPEN crs_split FOR
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
-   ) union all(
+   ) */union all(
    
    SELECT DISTINCT l.obj_id,l.geom as the_geom,x.the_geom as the_geom_node, 9 as tipo
    FROM elettricita.fcl_e_plant_busbar l, 
@@ -349,7 +349,7 @@ OPEN crs_split FOR
    AND not st_equals(x.the_geom,ST_EndPoint(l.geom)) 
    AND ST_DWithin(l.geom,x.the_geom,0.03)
    ORDER BY l.obj_id
-   )*/;
+   );
    
 LOOP
 	FETCH crs_split INTO rcd;
