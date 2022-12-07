@@ -43,22 +43,26 @@
 	  $cols = array("c.obj_id"=>"objectId", "c.cod_cabina"=>"Cod_Cabina", "c.codice_sap"=>"Cod_Sap", "c.nomeasset"=>"Nome_Asset", "c.calc_n_pdf_bt"=>"N_POD_BT", "c.calc_pot_contr_bt"=>"POT_POD_BT", "c.id_tipologia_value"=>"Tipologia");
 	  $header = implode(";",array_values($cols))."\r\n";
 	  $result = "";
+	  $rows = array();
 	  foreach($cols as $key=>$value)
 		  $sqlList[] = ($key." as ".$value);
 	  foreach($arr as $jj) {
 		$idObj = substr($jj->id, strrpos($jj->id, ".")+1);
 		$sql ="select ".implode(",",$sqlList)." from elettricita.fcl_E_installation c "
-		."inner join elettricita.fcl_e_plant_area a on a.rel_oid=c.fid "
-		."inner join elettricita.fcl_e_plant_Component b on a.obj_id=b.equipment_id "
-		."where b.obj_id='$idObj'";
+			."inner join elettricita.fcl_e_plant_area a on a.rel_oid=c.fid "
+			."inner join elettricita.fcl_e_plant_Component b on a.obj_id=b.equipment_id "
+			."where b.obj_id='$idObj'";
 		error_log($sql);
 		$stmt = $db->prepare($sql);
 		$stmt->execute();
-		while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			foreach($row as $pp)
-				$result.=$pp.";";
-			$result = substr($result,0,strlen($result)-1)."\r\n";
+		while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+			$rows[$row['objectid']] = $row;
 		}
+	  }
+	foreach($rows as $row){
+		foreach($row as $pp)
+			$result.=$pp.";";			
+		$result = substr($result,0,strlen($result)-1)."\r\n";
 	}
 	return $header.$result;
   }
