@@ -60,7 +60,7 @@
       $idObj = substr($jj->id, strrpos($jj->id, ".") + 1);
       error_log($jj->tipo);
       if(substr($jj->tipo, 0, strlen("valvola")) == "valvola") {
-	$sql = "select concat('fcl_h_isolation_device_',id_tipologia) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione, codice_oggetto from $schema.fcl_h_isolation_device where fid=".$idObj." and id_stato=3";
+	$sql = "select concat('fcl_h_isolation_device_',id_tipologia) as id_classe, codice_sap as sap_id, '".$jj->tipo."' as descrizione, case when id_territorio=1 then codice_valvola else null end as codice_oggetto from $schema.fcl_h_isolation_device where fid=".$idObj." and id_stato=3";
         error_log($sql);
         $stmt = $db->prepare($sql);
         $stmt->execute();
