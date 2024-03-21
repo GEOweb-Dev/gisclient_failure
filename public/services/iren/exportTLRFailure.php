@@ -61,7 +61,7 @@
       error_log($jj->tipo);
       if(substr($jj->tipo, 0, strlen("valvola")) == "valvola") {
 	      $sql = "select concat('fcl_h_isolation_device_',a.id_tipologia) as id_classe, 
-		      case when a.id_Territorio=1 then b.sap_id_poz else (left(b.sap_id_poz,-1) || 'X') as sap_id, '".$jj->tipo."' as descrizione, case when a.id_territorio=1 then a.codice_valvola else null end as codice_oggetto 
+		      case when a.id_Territorio=1 then b.sap_id_poz else (left(b.sap_id_poz,-1) || 'X') end as sap_id, '".$jj->tipo."' as descrizione, case when a.id_territorio=1 then a.codice_valvola else null end as codice_oggetto 
 		      from $schema.fcl_h_isolation_device a inner join $schema.sap_h_isolation_device b on a.codice_sap=b.sap_id
 			where a.fid=".$idObj." and a.id_stato=3";
         error_log($sql);
