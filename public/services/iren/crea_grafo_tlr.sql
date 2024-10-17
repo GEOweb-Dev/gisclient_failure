@@ -314,14 +314,28 @@ WHERE a.id_arco = b.arco_entrante;
 ALTER TABLE grafo.nodi_TLR ADD COLUMN tipo_nodo character varying;
 ALTER TABLE grafo.nodi_TLR ADD COLUMN id_elemento integer;
 
--- VALVOLE ZONA (1)/MAGLIATURA (2)
+-- VALVOLE ZONA (1)/MAGLIATURA (2)/SFIATO (4)/DRENAGGIO (5)/BARICENTRO (7)
 update grafo.nodi_TLR set tipo_nodo='valvola zona', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and e.id_tipoposa not in (4,18)) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola zona interrato', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and e.id_tipoposa=18) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola zona in cameretta', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and e.id_tipoposa=4) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+
+--CHG
+update grafo.nodi_TLR set tipo_nodo='valvola baricentro in cameretta', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=7 and e.id_stato=3 and e.id_tipoposa=4) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+update grafo.nodi_TLR set tipo_nodo='valvola baricentro interrato', id_elemento = fid from
+(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=7 and e.id_stato=3 and e.id_tipoposa=18) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+
 update grafo.nodi_TLR set tipo_nodo='valvola magliatura', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=2 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
-
 update grafo.nodi_TLR set tipo_nodo='valvola sfiato', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
@@ -336,18 +350,20 @@ ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=4 and e.
 update grafo.nodi_TLR set tipo_nodo='camera polivalente', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+--Rimozione per CHG
 update grafo.nodi_TLR set tipo_nodo='camera baricentro', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=10 and e.id_tipologia=1 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 
 
--- POZZETTI gtype=20, VALVOLA (4)/ BARICENTRO (3)/ POLIVALENTE (5)/
+-- POZZETTI gtype=20, VALVOLA (4)/ POLIVALENTE (5)/ BARICENTRO (3)/
 update grafo.nodi_TLR set tipo_nodo='pozzetto valvola', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=4 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
-update grafo.nodi_TLR set tipo_nodo='pozzetto baricentro', id_elemento = fid from
-(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+--Rimozione per CHG
+--update grafo.nodi_TLR set tipo_nodo='pozzetto baricentro', id_elemento = fid from
+--(select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
+--ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=3 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 update grafo.nodi_TLR set tipo_nodo='pozzetto polivalente', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_component e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.gtype_id=20 and e.id_tipologia=5 and e.id_stato=3) as foo where nodi_TLR.id_nodo=foo.id_nodo;
