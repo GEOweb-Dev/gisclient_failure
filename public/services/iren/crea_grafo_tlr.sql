@@ -317,7 +317,7 @@ ALTER TABLE grafo.nodi_TLR ADD COLUMN id_elemento integer;
 -- VALVOLE ZONA (1)/MAGLIATURA (2)/SFIATO (4)/DRENAGGIO (5)/BARICENTRO (7)
 update grafo.nodi_TLR set tipo_nodo='valvola zona', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
-ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and e.id_tipoposa not in (4,18)) as foo where nodi_TLR.id_nodo=foo.id_nodo;
+ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and ((e.id_tipoposa not in (4,18)) or (e.id_tipoposa is null))) as foo where nodi_TLR.id_nodo=foo.id_nodo;
 update grafo.nodi_TLR set tipo_nodo='valvola zona interrato', id_elemento = fid from
 (select fid, id_nodo from grafo.nodi_TLR n, teleriscaldamento.fcl_h_isolation_device e where
 ST_DWithin(n.the_geom,e.geom,0.01) and e.id_tipologia=1 and e.id_stato=3 and e.id_tipoposa=18) as foo where nodi_TLR.id_nodo=foo.id_nodo;
