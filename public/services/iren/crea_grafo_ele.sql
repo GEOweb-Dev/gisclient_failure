@@ -575,4 +575,25 @@ CREATE INDEX archi_ele_da_nodo_idx ON grafo.archi_ele (da_nodo);
 CREATE INDEX archi_ele_a_nodo_idx ON grafo.archi_ele (a_nodo);
 CREATE INDEX archi_ele_the_geom_gist ON grafo.archi_ele USING gist (the_geom);
 
+drop sequence if exists grafo.sentiero_seq_ele;
+CREATE SEQUENCE grafo.sentiero_seq_ele INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
+
+drop table if exists grafo.sentiero_ele cascade;
+create table grafo.sentiero_ele AS (
+select 
+nextval('grafo.sentiero_seq_ele'::regclass)::integer as id,
+NULL::character varying as idCabina,
+NULL::character varying as idOrigine,	
+NULL::integer as progressivo,
+NULL::character varying as idArco,
+NULL::character varying as sezione, 
+NULL::character varying as sorgente,
+NULL::character varying as destinazione,
+NULL::boolean as parallelo,
+NULL::character varying as tipologia
+); 
+
+ALTER TABLE grafo.sentiero_ele ADD CONSTRAINT sentiero_ele_pkey PRIMARY KEY(id); 
+ALTER TABLE grafo.sentiero_ele ADD CONSTRAINT sentiero_ele_unique UNIQUE(idOrigine,idCabina, progressivo, idArco);
+
 END$$;
