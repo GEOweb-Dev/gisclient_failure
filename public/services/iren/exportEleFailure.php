@@ -13,13 +13,22 @@
 
   //header
   $auth = $arr[0]->auth;
+  //$mapSet = $arr[0]->mapset;
   $data = array_values(array_slice($arr,1));
   //rows
   usort($data, function($a, $b) {
     return strcmp($a->id, $b->id);
   });
   switch($operation) {
-	case 2:
+  case 3:
+	  $s =array_unique(array_map(function(object $a){
+		  return str_replace("condotta.","",$a->id);
+	  },array_filter($arr,function(object $a){
+		  return property_exists($a,"tipo") && strcmp("condotta",$a->tipo)==0; 
+	  })));
+	  $red = reportNew(json_decode($_POST["arg"]),$s);
+	break;
+  case 2:
 		$red = reportMT($db, $data, $auth, $SCHEMA);
 		break;
     case 1:
@@ -38,6 +47,20 @@
   header('Cache-Control: must-revalidate');
   header('Content-Length: ' . filesize('/tmp/output.csv'));
   readfile('/tmp/output.csv');
+
+
+  function reportNew($data,$s) {
+	  $result = ""; 
+	  foreach(array_values($data) as $key=>$val){
+		 $vv = json_decode(json_encode($val),true);
+		  if($key==0)
+			  $result.=implode(";",array_keys($vv))."\n";
+		  if(in_array($vv["obj_id"],$s))
+		  	$result.=implode(";",$vv)."\n";
+	  }
+	  //error_log(trim($result));
+	  return trim($result);
+  }
 
   function reportMT($db, $arr, $auth, $schema) {
 	  $cols = array("c.obj_id"=>"objectId", "c.cod_cabina"=>"Cod_Cabina", "c.codice_sap"=>"Cod_Sap", "c.nomeasset"=>"Nome_Asset", "c.calc_n_pdf_bt"=>"N_POD_BT", "c.calc_pot_contr_bt"=>"POT_POD_BT", "c.id_tipologia_value"=>"Tipologia");
