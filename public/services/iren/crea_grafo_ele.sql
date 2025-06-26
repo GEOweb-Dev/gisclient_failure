@@ -589,6 +589,8 @@ NULL::character varying as idArco,
 NULL::character varying as sezione, 
 NULL::character varying as sorgente,
 NULL::character varying as destinazione,
+NULL::character varying as codiceSapCabinaSorgente,
+NULL::character varying as codiceSapCabinaDestinazione,
 NULL::boolean as parallelo,
 NULL::character varying as tipologia
 ); 
