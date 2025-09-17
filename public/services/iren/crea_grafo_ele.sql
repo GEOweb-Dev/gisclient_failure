@@ -582,7 +582,6 @@ drop table if exists grafo.sentiero_ele cascade;
 create table grafo.sentiero_ele AS (
 select 
 nextval('grafo.sentiero_seq_ele'::regclass)::integer as id,
-NULL::character varying as idCabina,
 NULL::character varying as idOrigine,	
 NULL::integer as progressivo,
 NULL::character varying as idArco,
@@ -590,12 +589,14 @@ NULL::character varying as sezione,
 NULL::character varying as sorgente,
 NULL::character varying as destinazione,
 NULL::character varying as codiceSapCabinaSorgente,
+NULL::character varying as tipologiaSorgente,
 NULL::character varying as codiceSapCabinaDestinazione,
+NULL::character varying as tipologiaDestinazione,
 NULL::boolean as parallelo,
 NULL::character varying as tipologia
 ); 
 
 ALTER TABLE grafo.sentiero_ele ADD CONSTRAINT sentiero_ele_pkey PRIMARY KEY(id); 
-ALTER TABLE grafo.sentiero_ele ADD CONSTRAINT sentiero_ele_unique UNIQUE(idOrigine,idCabina, progressivo, idArco);
+ALTER TABLE grafo.sentiero_ele ADD CONSTRAINT sentiero_ele_unique UNIQUE(idOrigine,progressivo, idArco);
 
 END$$;
