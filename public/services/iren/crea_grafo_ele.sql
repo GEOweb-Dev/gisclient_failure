@@ -420,6 +420,20 @@ FROM (
 GROUP BY the_geom;
 
 ALTER TABLE grafo.nodi_ele ADD PRIMARY KEY (id_nodo);
+CREATE INDEX nodi_ele_the_geom_gist ON grafo.nodi_ele USING gist (the_geom);
+
+CREATE TABLE grafo.nodi_ele_cluster AS (
+	SELECT x.*, ST_ClusterDBSCAN(x.the_geom, eps => 0.01, minpoints => 2) over() AS cluster FROM grafo.nodi_ele x, grafo.nodi_ele y WHERE ST_DWithin(x.the_geom,y.the_geom,0.01) AND x.id_nodo<>y.id_nodo
+);
+UPDATE grafo.nodi_ele
+SET arco_entrante=subquery.arco_entrante,
+    arco_uscente=subquery.arco_uscente
+FROM (
+	SELECT MIN(id_nodo) AS id_nodo, array_remove(array_agg(arco_entrante),null) AS arco_entrante, array_remove(array_agg(arco_uscente),null) AS arco_uscente FROM (SELECT id_nodo, unnest(arco_entrante) AS arco_entrante, unnest(arco_uscente) AS arco_uscente, cluster FROM grafo.nodi_ele_cluster) dummy GROUP BY cluster
+) AS subquery
+WHERE grafo.nodi_ele.id_nodo=subquery.id_nodo;
+DELETE FROM grafo.nodi_ele WHERE id_nodo IN (SELECT MAX(id_nodo) FROM grafo.nodi_ele_cluster GROUP BY cluster);
+DROP TABLE grafo.nodi_ele_cluster;
 
 
 --ESPANDO LA TABELLA DEI NODI PER POTER FARE LE QUERY DI JOIN E AGGIORNARE LA TABELLA DEGLI ARCHI
