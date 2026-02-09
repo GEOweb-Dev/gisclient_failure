@@ -248,6 +248,8 @@ CREATE INDEX archi_TLR_prj_da_nodo_idx ON grafo.archi_TLR_prj (da_nodo);
 CREATE INDEX archi_TLR_prj_a_nodo_idx ON grafo.archi_TLR_prj (a_nodo);
 CREATE INDEX archi_TLR_prj_the_geom_gist ON grafo.archi_TLR_prj USING gist (the_geom);
 
+DROP TABLE if exists grafo.sentiero_TLR_PRJ cascade;
+
 create table grafo.sentiero_tlr_prj(
 idorigine int,
 lunghezza float not null,
