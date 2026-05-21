@@ -12,8 +12,10 @@
   $result = "";
 
   //header
-  foreach($arr[0] as $key=>$value)
-    $header.= $key.";";
+  foreach($arr[0] as $key=>$value){
+	  if(strcmp('titolo',$key)!=0)
+	  $header.= $key.";";
+  }
   $header = substr($header, 0, strlen($header)-1);
 
   //rows
@@ -29,8 +31,10 @@
       break;
     default:
       foreach($arr as $jj) {
-        foreach($jj as $key=>$value)
-          $result .= $value.";";
+	      foreach($jj as $key=>$value){
+		      if(strcmp('tipo',$key)!=0)
+		$result .= $value.";";
+	}
         $result = substr($result, 0, strlen($result)-1)."\r\n";
       }
       $red = $header."\r\n".$result;
