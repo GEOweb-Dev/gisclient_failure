@@ -152,8 +152,10 @@ foreach($indexCondottaArr as $singleIndexCondotta) {
 	while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
 		$properties = array();
 		//encode in utf8
-		foreach($ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["properties"] as $field)
-			$properties[$field["name"]]=utf8_encode($row[$field["name"]]);
+		foreach($ELEMENTS["condotta"]["featureType"][$singleIndexCondotta]["properties"] as $field){
+			$f= (strpos($field["name"]," as ")!==false ? explode(" as ",$field["name"])[1] : $field["name"]);
+			$properties[$f/*ield["name"]*/]=utf8_encode($row[$f/*ield["name"]*/]);
+		}
 		$properties["escluso"]=0;
 		$properties["simbolo"]="";
 		$properties["tipo"]=$singleIndexCondotta;
